@@ -5310,7 +5310,7 @@
           var memoEl = document.getElementById('memo-rich-editor');
           var mid = pageParams && pageParams.id;
           var mt = mid ? (data.projectTasks||[]).find(function(t){return isLive(t) && t.id===mid;}) : null;
-          if (mt && memoEl) { mt.memo = htmlToMarkdown(memoEl); mt._modTs = bumpModTs(mt._modTs); saveData(); }
+          if (mt && memoEl) { mt.memo = memoEl.innerHTML; mt._modTs = bumpModTs(mt._modTs); saveData(); }
         }
         if (typeof _taskTitleTimer !== 'undefined' && _taskTitleTimer) {
           clearTimeout(_taskTitleTimer); _taskTitleTimer = null;
@@ -6220,6 +6220,15 @@
         if (task && val) { task.title = val; task._modTs = bumpModTs(task._modTs); markDirty('projectTasks', task.id); saveData(); }
       }, 800);
     }
+    // Memo storage: raw HTML (like manual.taskRoadmap). Legacy markdown values
+    // are detected by absence of any HTML tag and migrated through markdownToHtml
+    // on the next load. URL auto-linkification stays via autoLinkifyOnKey.
+    function memoLoadAsHtml(raw) {
+      if (!raw) return '';
+      // If it has any HTML tag, treat as HTML; otherwise migrate from markdown.
+      if (/<[a-zA-Z][\s\S]*?>/.test(raw)) return raw;
+      return markdownToHtml(raw);
+    }
     var _taskMemoTimer = null;
     function autoSaveTaskMemo(taskId) {
       var status = document.getElementById('memo-save-status');
@@ -6228,7 +6237,7 @@
       _taskMemoTimer = setTimeout(function() {
         var task = (data.projectTasks || []).find(function(t) { return isLive(t) && t.id === taskId; });
         var el = document.getElementById('memo-rich-editor');
-        if (task && el) { task.memo = htmlToMarkdown(el); task._modTs = bumpModTs(task._modTs); markDirty('projectTasks', task.id); saveData(); }
+        if (task && el) { task.memo = el.innerHTML; task._modTs = bumpModTs(task._modTs); markDirty('projectTasks', task.id); saveData(); }
         if (status) { status.textContent = '保存済み'; setTimeout(function() { if (status) status.textContent = ''; }, 2000); }
       }, 800);
     }
@@ -6237,7 +6246,7 @@
       var editor = document.getElementById('memo-rich-editor');
       if (!task || !editor) return;
       if (task.memo) {
-        editor.innerHTML = markdownToHtml(task.memo);
+        editor.innerHTML = memoLoadAsHtml(task.memo);
         wireCodeTextboxes(editor);
         if (typeof decorateCopyBlocks === 'function') decorateCopyBlocks(editor);
       }
@@ -6246,7 +6255,7 @@
         if (!sel.rangeCount) return;
         var container = document.createElement('div');
         container.appendChild(sel.getRangeAt(0).cloneContents());
-        e.clipboardData.setData('text/plain', htmlToMarkdown(container));
+        e.clipboardData.setData('text/plain', container.innerText);
         e.preventDefault();
       });
       editor.addEventListener('cut', function(e) {
@@ -6255,7 +6264,7 @@
         var range = sel.getRangeAt(0);
         var container = document.createElement('div');
         container.appendChild(range.cloneContents());
-        e.clipboardData.setData('text/plain', htmlToMarkdown(container));
+        e.clipboardData.setData('text/plain', container.innerText);
         range.deleteContents();
         e.preventDefault();
         // 切り取った内容が DOM から消えただけだと autosave が走らないので
@@ -6994,29 +7003,27 @@
       const editor = document.getElementById('memo-rich-editor');
       if (!project || !editor) return;
       if (project.memo) {
-        editor.innerHTML = markdownToHtml(project.memo);
+        editor.innerHTML = memoLoadAsHtml(project.memo);
         wireCodeTextboxes(editor);
         if (typeof decorateCopyBlocks === 'function') decorateCopyBlocks(editor);
       }
-      // Copy event: output markdown to clipboard
+      // Copy event: output plain text (innerText) to clipboard
       editor.addEventListener('copy', function(e) {
         const sel = window.getSelection();
         if (!sel.rangeCount) return;
         const container = document.createElement('div');
         container.appendChild(sel.getRangeAt(0).cloneContents());
-        const md = htmlToMarkdown(container);
-        e.clipboardData.setData('text/plain', md);
+        e.clipboardData.setData('text/plain', container.innerText);
         e.preventDefault();
       });
-      // Cut event: output markdown to clipboard
+      // Cut event: output plain text to clipboard
       editor.addEventListener('cut', function(e) {
         const sel = window.getSelection();
         if (!sel.rangeCount) return;
         const range = sel.getRangeAt(0);
         const container = document.createElement('div');
         container.appendChild(range.cloneContents());
-        const md = htmlToMarkdown(container);
-        e.clipboardData.setData('text/plain', md);
+        e.clipboardData.setData('text/plain', container.innerText);
         range.deleteContents();
         e.preventDefault();
         // 切り取った内容を autosave に伝えるため input イベントを発火
@@ -7311,7 +7318,7 @@
       if (!project) return;
       const editor = document.getElementById('memo-rich-editor');
       if (!editor) return;
-      project.memo = htmlToMarkdown(editor);
+      project.memo = editor.innerHTML;
       project._modTs = bumpModTs(project._modTs);
       markDirty('projects', project.id);
       saveData();
