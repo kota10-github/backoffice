@@ -3311,6 +3311,7 @@
           <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('quote')" title="引用">❮ 引用</button>
           <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('callout', this)" title="コールアウト">💡 コールアウト</button>
           <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('code')" title="コード">&lt;/&gt; コード</button>
+          <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('copybox')" title="コピーBOX (枠で囲ってコピーボタンを付ける)">📋 コピーBOX</button>
           <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('collapse')" title="折りたたみ">▸ 折りたたみ</button>
           <button type="button" class="memo-toolbar-btn" onclick="memoExecCmd('hr')" title="水平線">─ 線</button>
         </div>
@@ -6239,6 +6240,7 @@
       if (task.memo) {
         editor.innerHTML = markdownToHtml(task.memo);
         wireCodeTextboxes(editor);
+        if (typeof decorateCopyBlocks === 'function') decorateCopyBlocks(editor);
       }
       editor.addEventListener('copy', function(e) {
         var sel = window.getSelection();
@@ -6718,6 +6720,15 @@
     function markdownToHtml(md) {
       if (!md) return '';
       let html = md;
+      // Copy-box (:::copy ... :::) → .copy-block placeholder; replaced after
+      // paragraph processing so the body content survives \n<->\<br> tweaks.
+      var copyBoxes = [];
+      html = html.replace(/^:::copy\n([\s\S]*?)\n:::$/gm, function(_, body) {
+        var esc = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        var rendered = '<div class="copy-block" contenteditable="false"><div class="copy-block-body" contenteditable="true">' + esc + '</div></div>';
+        copyBoxes.push(rendered);
+        return 'COPYBOX' + (copyBoxes.length - 1) + '';
+      });
       // Code blocks → <pre><code>; wireCodeTextboxes() upgrades them to a
       // code-textbox-wrapper at load time (textarea + copy/delete buttons).
       html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
@@ -6776,6 +6787,10 @@
       html = html.replace(/(<\/blockquote>)<\/p>/g, '$1');
       html = html.replace(/<p>(<hr>)/g, '$1');
       html = html.replace(/(<hr>)<\/p>/g, '$1');
+      // Restore copy-box placeholders, stripping any <p> wrapper around them.
+      html = html.replace(/(?:<p>\s*)?COPYBOX(\d+)(?:\s*<\/p>)?/g, function(_, i) {
+        return copyBoxes[Number(i)] || '';
+      });
       return html;
     }
 
@@ -6787,6 +6802,18 @@
           return;
         }
         if (node.nodeType !== 1) return;
+        // Copy box: serialize as ::: copy / ::: fenced block
+        if (node.classList && node.classList.contains('copy-block')) {
+          var bodyEl = node.querySelector('.copy-block-body');
+          var bodyText = bodyEl ? bodyEl.innerText : (node.innerText || '');
+          // Strip the trailing newline that innerText usually appends and
+          // any internal "コピー" / "コピー済" leaks (the button is contenteditable=false
+          // so innerText shouldn't include it, but be defensive).
+          bodyText = bodyText.replace(/\n+$/, '');
+          if (md.length > 0 && !md.endsWith('\n')) md += '\n';
+          md += ':::copy\n' + bodyText + '\n:::\n';
+          return;
+        }
         // Code textbox wrapper: read .value from the inner textarea
         if (node.classList && node.classList.contains('code-textbox-wrapper')) {
           var ta = node.querySelector('textarea.code-textbox');
@@ -6946,6 +6973,7 @@
       if (project.memo) {
         editor.innerHTML = markdownToHtml(project.memo);
         wireCodeTextboxes(editor);
+        if (typeof decorateCopyBlocks === 'function') decorateCopyBlocks(editor);
       }
       // Copy event: output markdown to clipboard
       editor.addEventListener('copy', function(e) {
@@ -7083,6 +7111,32 @@
           sel.addRange(r2);
           break;
         }
+          case 'copybox': {
+            // Wrap selection (or empty) in a .copy-block (with body) and let
+            // decorateCopyBlocks attach the Copy button. Round-trips via
+            // ::: copy / ::: markdown delimiters.
+            var block = document.createElement('div');
+            block.className = 'copy-block';
+            block.setAttribute('contenteditable', 'false');
+            var body = document.createElement('div');
+            body.className = 'copy-block-body';
+            body.setAttribute('contenteditable', 'true');
+            var selText = sel.toString();
+            if (selText) { body.innerHTML = selText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); } else { body.innerHTML = '<br>'; }
+            block.appendChild(body);
+            if (range) {
+              range.deleteContents();
+              range.insertNode(block);
+              var r2 = document.createRange();
+              r2.selectNodeContents(body);
+              r2.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(r2);
+            }
+            if (typeof decorateCopyBlocks === 'function') decorateCopyBlocks(editor);
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            break;
+          }
           case 'codeblock': {
             if (range) {
               var wrapper = document.createElement('div');
