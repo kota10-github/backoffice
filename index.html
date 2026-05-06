@@ -6238,6 +6238,7 @@
       if (!task || !editor) return;
       if (task.memo) {
         editor.innerHTML = markdownToHtml(task.memo);
+        wireCodeTextboxes(editor);
       }
       editor.addEventListener('copy', function(e) {
         var sel = window.getSelection();
@@ -6717,8 +6718,24 @@
     function markdownToHtml(md) {
       if (!md) return '';
       let html = md;
-      // Code blocks
-      html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      // Code blocks → code-textbox-wrapper (preserves copy/delete buttons round-trip)
+      // Extract first and substitute with placeholders so subsequent regexes
+      // (paragraph splitting, <br> conversion etc.) don't mangle the textarea content.
+      var codeBlocks = [];
+      html = html.replace(/```([\s\S]*?)```/g, function(_, code) {
+        code = code.replace(/^\n/, '').replace(/\n$/, '');
+        var esc = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var COPY_SVG = '<svg viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25zM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>';
+        var DEL_SVG = '<svg viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>';
+        var rendered = '<div class="code-textbox-wrapper" contenteditable="false">'
+             + '<textarea class="code-textbox" rows="3" placeholder="コードを入力...">' + esc + '</textarea>'
+             + '<button class="code-textbox-copy-btn" type="button">' + COPY_SVG + 'Copy</button>'
+             + '<button class="code-textbox-delete-btn" type="button">' + DEL_SVG + '削除</button>'
+             + '</div>';
+        var idx = codeBlocks.length;
+        codeBlocks.push(rendered);
+        return ' CODEBLOCK' + idx + ' ';
+      });
       // Inline code
       html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
       // Headings
@@ -6774,6 +6791,10 @@
       html = html.replace(/(<\/blockquote>)<\/p>/g, '$1');
       html = html.replace(/<p>(<hr>)/g, '$1');
       html = html.replace(/(<hr>)<\/p>/g, '$1');
+      // Restore code block placeholders, stripping surrounding <p> wrappers
+      html = html.replace(/(?:<p>\s*)? CODEBLOCK(\d+) (?:\s*<\/p>)?/g, function(_, i) {
+        return codeBlocks[Number(i)] || '';
+      });
       return html;
     }
 
@@ -6785,6 +6806,14 @@
           return;
         }
         if (node.nodeType !== 1) return;
+        // Code textbox wrapper: read .value from the inner textarea
+        if (node.classList && node.classList.contains('code-textbox-wrapper')) {
+          var ta = node.querySelector('textarea.code-textbox');
+          var v = ta ? ta.value : '';
+          if (md.length > 0 && !md.endsWith('\n')) md += '\n';
+          md += '```\n' + v + '\n```\n';
+          return;
+        }
         const tag = node.tagName.toLowerCase();
         switch(tag) {
           case 'h1': md += '# '; walkChildren(node); md += '\n'; break;
@@ -6858,42 +6887,55 @@
       return md;
     }
 
+    // Bind click handlers to code-textbox copy/delete buttons after innerHTML load
+    function wireCodeTextboxes(editor) {
+      if (!editor) return;
+      editor.querySelectorAll('.code-textbox-wrapper').forEach(function(wrapper) {
+        wrapper.contentEditable = 'false';
+        var ta = wrapper.querySelector('.code-textbox');
+        var copyBtn = wrapper.querySelector('.code-textbox-copy-btn');
+        var delBtn = wrapper.querySelector('.code-textbox-delete-btn');
+        if (copyBtn && ta && !copyBtn._wired) {
+          copyBtn._wired = true;
+          copyBtn.onclick = function(e) {
+            e.preventDefault(); e.stopPropagation();
+            navigator.clipboard.writeText(ta.value).then(function() {
+              copyBtn.classList.add('copied');
+              copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>Copied!';
+              setTimeout(function() {
+                copyBtn.classList.remove('copied');
+                copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25zM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>Copy';
+              }, 1500);
+            });
+          };
+        }
+        if (delBtn && !delBtn._wired) {
+          delBtn._wired = true;
+          delBtn.onclick = function(e) {
+            e.preventDefault(); e.stopPropagation();
+            if (confirm('このコードブロックを削除しますか？')) {
+              wrapper.remove();
+              editor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          };
+        }
+        // textarea edits should trigger the editor's autosave
+        if (ta && !ta._wired) {
+          ta._wired = true;
+          ta.addEventListener('input', function() {
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        }
+      });
+    }
+
     function loadMemoToEditor(projectId) {
       const project = getProject(projectId);
       const editor = document.getElementById('memo-rich-editor');
       if (!project || !editor) return;
       if (project.memo) {
         editor.innerHTML = markdownToHtml(project.memo);
-      // Initialize delete buttons on existing code blocks
-      editor.querySelectorAll('.code-textbox-wrapper').forEach(function(wrapper) {
-        if (!wrapper.querySelector('.code-textbox-delete-btn')) {
-          var delBtn = document.createElement('button');
-          delBtn.className = 'code-textbox-delete-btn';
-          delBtn.type = 'button';
-          delBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"></path></svg>削除';
-          delBtn.onclick = function() {
-            if (confirm('このコードブロックを削除しますか？')) {
-              wrapper.remove();
-            }
-          };
-          wrapper.appendChild(delBtn);
-        }
-        // Re-attach copy button event
-        var copyBtn = wrapper.querySelector('.code-textbox-copy-btn');
-        var ta = wrapper.querySelector('.code-textbox');
-        if (copyBtn && ta) {
-          copyBtn.onclick = function() {
-            navigator.clipboard.writeText(ta.value).then(function() {
-              copyBtn.classList.add('copied');
-              copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"></path></svg> Copied!';
-              setTimeout(function() {
-                copyBtn.classList.remove('copied');
-                copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25zM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"></path></svg> Copy';
-              }, 1500);
-            });
-          };
-        }
-      });
+        wireCodeTextboxes(editor);
       }
       // Copy event: output markdown to clipboard
       editor.addEventListener('copy', function(e) {
@@ -7050,7 +7092,7 @@
                   copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>Copied!';
                   setTimeout(function() {
                     copyBtn.classList.remove('copied');
-                    copyBtn.innerHTML = '<svg viewBox="0 0 1616"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25zM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>Copy';
+                    copyBtn.innerHTML = '<svg viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25zM5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>Copy';
                   }, 1500);
                 });
               };
