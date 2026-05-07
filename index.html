@@ -911,6 +911,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           権限管理
         </button>
+        <button class="nav-item" data-page="trash" onclick="navigate('trash')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          ゴミ箱
+        </button>
       </div>
     </nav>
 
@@ -1690,6 +1694,7 @@
         case 'tags': renderTags(main); break;
         case 'work-mgmt': renderWorkMgmt(main); break;
         case 'permissions': renderPermissions(main); break;
+        case 'trash': renderTrash(main); break;
         case 'member-page': renderMemberPage(main); break;
         default: main.innerHTML = '<p>Not Found</p>';
       }
@@ -6475,6 +6480,113 @@
       saveData(); toast('権限を更新しました');
     }
 
+    // TRASH (ゴミ箱)
+    // tombstone (_deleted: true) されたプロジェクト/マニュアル/タスクを一覧表示し、
+    // 復元ボタンで _deleted を解除する。物理削除はしない (sync merge で復活する恐れがあるため)。
+    function renderTrash(el) {
+      var deletedProjects = (data.projects || []).filter(function(p){ return p && p._deleted; });
+      var deletedManuals = (data.manuals || []).filter(function(m){ return m && m._deleted; });
+      var deletedTasks = (data.projectTasks || []).filter(function(t){ return t && t._deleted; });
+      var fmtTs = function(ts){
+        if (!ts) return '';
+        try { var d = new Date(ts > 1e12 ? ts : ts*1000); return d.toLocaleString('ja-JP'); } catch(e) { return ''; }
+      };
+      var sortByTs = function(a,b){ return (b._modTs||0) - (a._modTs||0); };
+      deletedProjects.sort(sortByTs); deletedManuals.sort(sortByTs); deletedTasks.sort(sortByTs);
+      var totalCount = deletedProjects.length + deletedManuals.length + deletedTasks.length;
+
+      var html = '<div class="page-header"><h1 class="page-title">ゴミ箱</h1></div>';
+      html += renderBreadcrumb();
+      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:16px">削除されたタブ・サブプロジェクト・マニュアル・タスク（合計 <strong>' + totalCount + '</strong> 件）。「復元」で元の場所に戻ります。</p>';
+
+      if (totalCount === 0) {
+        html += '<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--fg-muted)">ゴミ箱は空です</div></div>';
+        el.innerHTML = html; return;
+      }
+
+      // Projects (タブ・サブタブ)
+      if (deletedProjects.length) {
+        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.folder + ' プロジェクト/サブプロジェクト <span class="badge badge-secondary" style="margin-left:4px">' + deletedProjects.length + '</span></span></div><div class="card-body">';
+        deletedProjects.forEach(function(p){
+          var parentLabel = '';
+          if (p.parentId != null) {
+            var par = (data.projects || []).find(function(x){ return x.id === p.parentId; });
+            parentLabel = par ? '（親: ' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
+          }
+          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(p.name || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
+               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(p._modTs) + '</p></div>'
+               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'projects\',' + p.id + ')">復元</button></div></div>';
+        });
+        html += '</div></div>';
+      }
+
+      // Manuals
+      if (deletedManuals.length) {
+        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.book + ' マニュアル <span class="badge badge-secondary" style="margin-left:4px">' + deletedManuals.length + '</span></span></div><div class="card-body">';
+        deletedManuals.forEach(function(m){
+          var par = (data.projects || []).find(function(x){ return x.id === m.projectId; });
+          var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
+          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(m.title || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
+               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(m._modTs) + '</p></div>'
+               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'manuals\',' + m.id + ')">復元</button></div></div>';
+        });
+        html += '</div></div>';
+      }
+
+      // Tasks
+      if (deletedTasks.length) {
+        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.target + ' タスク <span class="badge badge-secondary" style="margin-left:4px">' + deletedTasks.length + '</span></span></div><div class="card-body">';
+        deletedTasks.forEach(function(t){
+          var par = (data.projects || []).find(function(x){ return x.id === t.projectId; });
+          var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
+          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(t.title || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
+               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(t._modTs) + '</p></div>'
+               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'projectTasks\',' + t.id + ')">復元</button></div></div>';
+        });
+        html += '</div></div>';
+      }
+
+      // Bulk restore
+      html += '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
+           + '<button class="btn btn-primary" onclick="restoreAllFromTrash()">' + icons.check + ' すべて復元</button>'
+           + '</div>';
+
+      el.innerHTML = html;
+    }
+
+    function restoreFromTrash(kind, id) {
+      var arr = data[kind] || [];
+      var item = arr.find(function(x){ return x && x.id === id; });
+      if (!item) return;
+      item._deleted = false;
+      item._modTs = bumpModTs(item._modTs);
+      markDirty(kind, item.id);
+      // プロジェクト復元時、親が tombstone のままなら親も連鎖復元
+      if (kind === 'projects' && item.parentId != null) {
+        var par = (data.projects || []).find(function(x){ return x.id === item.parentId; });
+        if (par && par._deleted) restoreFromTrash('projects', par.id);
+      }
+      saveData(); toast('復元しました'); render();
+    }
+
+    function restoreAllFromTrash() {
+      showModal('すべて復元', '<p class="confirm-text">ゴミ箱内のすべてのアイテムを復元しますか？</p>', [
+        { label: 'キャンセル', onClick: function(o){ o.remove(); } },
+        { label: '復元', class: 'btn btn-primary', onClick: function(o){
+          ['projects','manuals','projectTasks'].forEach(function(kind){
+            (data[kind] || []).forEach(function(item){
+              if (item && item._deleted) {
+                item._deleted = false;
+                item._modTs = bumpModTs(item._modTs);
+                markDirty(kind, item.id);
+              }
+            });
+          });
+          saveData(); toast('すべて復元しました'); o.remove(); render();
+        }}
+      ]);
+    }
+
     // MEMBER PAGE
     function renderMemberPage(el) {
       const user = getUser(pageParams.userId);
@@ -6611,7 +6723,7 @@
       const project = getProject(id);
       const manualCount = getManualCountForProject(id);
       showModal('プロジェクトを削除',
-        `<p class="confirm-text">「${escapeHtml(project?.name || '')}」を削除しますか？${manualCount > 0 ? `このプロジェクトに含まれる ${manualCount} 件のマニュアルも削除されます。` : ''}この操作は取り消せません。</p>`,
+        `<p class="confirm-text">「${escapeHtml(project?.name || '')}」をゴミ箱に移動しますか？${manualCount > 0 ? `このプロジェクトに含まれる ${manualCount} 件のマニュアルも一緒に移動されます。` : ''}サイドバーのゴミ箱から復元できます。</p>`,
         [
           { label: 'キャンセル', onClick: o => o.remove() },
           { label: '削除', class: 'btn btn-destructive', onClick: o => {
@@ -7326,14 +7438,13 @@
     }
 
     function confirmDeleteManual(id) {
-      showModal('マニュアルを削除', `<p class="confirm-text">この操作は取り消せません。マニュアルに紐づく責任者情報も削除されます。</p>`, [
+      showModal('マニュアルを削除', `<p class="confirm-text">マニュアルをゴミ箱に移動します。サイドバーのゴミ箱から復元できます。</p>`, [
         { label: 'キャンセル', onClick: o => o.remove() },
         { label: '削除', class: 'btn btn-destructive', onClick: o => {
-          const m = getManual(id);
+          const m = data.manuals.find(x => x.id === id);
           const pid = m?.projectId;
-          data.manuals = data.manuals.filter(m => m.id !== id);
-          data.assignees = data.assignees.filter(a => a.manualId !== id);
-          saveData(); toast('マニュアルを削除しました'); o.remove();
+          if (m) { m._deleted = true; m._modTs = bumpModTs(m._modTs); markDirty('manuals', m.id); }
+          saveData(); toast('ゴミ箱に移動しました'); o.remove();
           if (currentPage === 'manual-detail') navigate('project-detail', { id: pid });
           else render();
         }}
