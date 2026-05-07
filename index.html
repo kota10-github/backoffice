@@ -6483,75 +6483,116 @@
     // TRASH (ゴミ箱)
     // tombstone (_deleted: true) されたプロジェクト/マニュアル/タスクを一覧表示し、
     // 復元ボタンで _deleted を解除する。物理削除はしない (sync merge で復活する恐れがあるため)。
+    // 削除タイムスタンプ (_modTs) が近いものを「同一の削除塊」としてグルーピングする閾値。
+    // 5 分以上空いたら別バッチ扱い。
+    var TRASH_BATCH_GAP_MS = 5 * 60 * 1000;
+
     function renderTrash(el) {
-      var deletedProjects = (data.projects || []).filter(function(p){ return p && p._deleted; });
-      var deletedManuals = (data.manuals || []).filter(function(m){ return m && m._deleted; });
-      var deletedTasks = (data.projectTasks || []).filter(function(t){ return t && t._deleted; });
+      // 全 tombstone を type 付きで集約
+      var items = [];
+      (data.projects || []).forEach(function(p){ if (p && p._deleted) items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0 }); });
+      (data.manuals || []).forEach(function(m){ if (m && m._deleted) items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0 }); });
+      (data.projectTasks || []).forEach(function(t){ if (t && t._deleted) items.push({ kind:'projectTasks', label:'タスク', icon:icons.target, name:t.title||'無題', item:t, ts:t._modTs||0 }); });
+
       var fmtTs = function(ts){
-        if (!ts) return '';
-        try { var d = new Date(ts > 1e12 ? ts : ts*1000); return d.toLocaleString('ja-JP'); } catch(e) { return ''; }
+        if (!ts) return '不明';
+        try { var d = new Date(ts > 1e12 ? ts : ts*1000); return d.toLocaleString('ja-JP'); } catch(e) { return '不明'; }
       };
-      var sortByTs = function(a,b){ return (b._modTs||0) - (a._modTs||0); };
-      deletedProjects.sort(sortByTs); deletedManuals.sort(sortByTs); deletedTasks.sort(sortByTs);
-      var totalCount = deletedProjects.length + deletedManuals.length + deletedTasks.length;
 
       var html = '<div class="page-header"><h1 class="page-title">ゴミ箱</h1></div>';
       html += renderBreadcrumb();
-      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:16px">削除されたタブ・サブプロジェクト・マニュアル・タスク（合計 <strong>' + totalCount + '</strong> 件）。「復元」で元の場所に戻ります。</p>';
+      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:16px">削除されたアイテム（合計 <strong>' + items.length + '</strong> 件）を、削除時刻の近いものごとにまとめて表示します。</p>';
 
-      if (totalCount === 0) {
+      if (!items.length) {
         html += '<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--fg-muted)">ゴミ箱は空です</div></div>';
         el.innerHTML = html; return;
       }
 
-      // Projects (タブ・サブタブ)
-      if (deletedProjects.length) {
-        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.folder + ' プロジェクト/サブプロジェクト <span class="badge badge-secondary" style="margin-left:4px">' + deletedProjects.length + '</span></span></div><div class="card-body">';
-        deletedProjects.forEach(function(p){
-          var parentLabel = '';
-          if (p.parentId != null) {
-            var par = (data.projects || []).find(function(x){ return x.id === p.parentId; });
-            parentLabel = par ? '（親: ' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
+      // 新しい順にソートし、_modTs のギャップでバッチに分割
+      items.sort(function(a,b){ return b.ts - a.ts; });
+      var batches = [];
+      items.forEach(function(it){
+        var last = batches[batches.length-1];
+        if (last && Math.abs(last.maxTs - it.ts) <= TRASH_BATCH_GAP_MS) {
+          last.items.push(it);
+          last.minTs = Math.min(last.minTs, it.ts);
+          last.maxTs = Math.max(last.maxTs, it.ts);
+        } else {
+          batches.push({ items: [it], minTs: it.ts, maxTs: it.ts });
+        }
+      });
+
+      batches.forEach(function(batch, bi){
+        var counts = { projects:0, manuals:0, projectTasks:0 };
+        batch.items.forEach(function(x){ counts[x.kind]++; });
+        var summary = [];
+        if (counts.projects) summary.push('プロジェクト ' + counts.projects);
+        if (counts.manuals) summary.push('マニュアル ' + counts.manuals);
+        if (counts.projectTasks) summary.push('タスク ' + counts.projectTasks);
+        var rangeLabel = (batch.minTs === batch.maxTs)
+          ? fmtTs(batch.maxTs)
+          : fmtTs(batch.maxTs) + ' 〜 ' + fmtTs(batch.minTs);
+
+        html += '<div class="card mb-4">';
+        html += '<div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px">';
+        html += '<div><div style="font-weight:600;color:var(--fg);font-size:13px">' + escapeHtml(rangeLabel) + '</div>';
+        html += '<div class="text-xs" style="color:var(--fg-muted);margin-top:2px">' + escapeHtml(summary.join(' ・ ')) + '（計 ' + batch.items.length + ' 件）</div></div>';
+        html += '<button class="btn btn-primary btn-sm" onclick="restoreTrashBatch(' + bi + ')">この塊を復元</button>';
+        html += '</div>';
+        html += '<div class="card-body">';
+        batch.items.forEach(function(x){
+          var par = null;
+          if (x.kind === 'manuals' || x.kind === 'projectTasks') {
+            par = (data.projects || []).find(function(p){ return p.id === x.item.projectId; });
+          } else if (x.kind === 'projects' && x.item.parentId != null) {
+            par = (data.projects || []).find(function(p){ return p.id === x.item.parentId; });
           }
-          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(p.name || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
-               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(p._modTs) + '</p></div>'
-               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'projects\',' + p.id + ')">復元</button></div></div>';
-        });
-        html += '</div></div>';
-      }
-
-      // Manuals
-      if (deletedManuals.length) {
-        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.book + ' マニュアル <span class="badge badge-secondary" style="margin-left:4px">' + deletedManuals.length + '</span></span></div><div class="card-body">';
-        deletedManuals.forEach(function(m){
-          var par = (data.projects || []).find(function(x){ return x.id === m.projectId; });
           var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
-          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(m.title || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
-               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(m._modTs) + '</p></div>'
-               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'manuals\',' + m.id + ')">復元</button></div></div>';
+          html += '<div class="user-row"><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--fg-muted)">' + x.icon + '</span>'
+               + '<div><p style="font-weight:500">' + escapeHtml(x.name) + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
+               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">' + x.label + ' / ' + fmtTs(x.ts) + '</p></div></div>'
+               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'' + x.kind + '\',' + x.item.id + ')">復元</button></div></div>';
         });
         html += '</div></div>';
-      }
+      });
 
-      // Tasks
-      if (deletedTasks.length) {
-        html += '<div class="card mb-4"><div class="card-header"><span class="text-xs" style="font-weight:600;color:var(--fg-muted)">' + icons.target + ' タスク <span class="badge badge-secondary" style="margin-left:4px">' + deletedTasks.length + '</span></span></div><div class="card-body">';
-        deletedTasks.forEach(function(t){
-          var par = (data.projects || []).find(function(x){ return x.id === t.projectId; });
-          var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
-          html += '<div class="user-row"><div><p style="font-weight:500">' + escapeHtml(t.title || '無題') + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
-               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">削除日時: ' + fmtTs(t._modTs) + '</p></div>'
-               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'projectTasks\',' + t.id + ')">復元</button></div></div>';
-        });
-        html += '</div></div>';
-      }
+      // 全体を保存しておく (this batch restore で参照)
+      window._trashBatches = batches;
 
-      // Bulk restore
       html += '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
            + '<button class="btn btn-primary" onclick="restoreAllFromTrash()">' + icons.check + ' すべて復元</button>'
            + '</div>';
 
       el.innerHTML = html;
+    }
+
+    function restoreTrashBatch(batchIndex) {
+      var batch = (window._trashBatches || [])[batchIndex];
+      if (!batch) return;
+      var summary = batch.items.length + ' 件';
+      showModal('この塊を復元', '<p class="confirm-text">' + escapeHtml(summary) + 'のアイテムを復元しますか？</p>', [
+        { label: 'キャンセル', onClick: function(o){ o.remove(); } },
+        { label: '復元', class: 'btn btn-primary', onClick: function(o){
+          batch.items.forEach(function(x){
+            var item = (data[x.kind] || []).find(function(i){ return i && i.id === x.item.id; });
+            if (item && item._deleted) {
+              item._deleted = false;
+              item._modTs = bumpModTs(item._modTs);
+              markDirty(x.kind, item.id);
+            }
+          });
+          // 親が tombstone のままなら連鎖復元
+          batch.items.forEach(function(x){
+            if (x.kind === 'projects' && x.item.parentId != null) {
+              var par = (data.projects || []).find(function(p){ return p.id === x.item.parentId; });
+              if (par && par._deleted) {
+                par._deleted = false; par._modTs = bumpModTs(par._modTs); markDirty('projects', par.id);
+              }
+            }
+          });
+          saveData(); toast(summary + 'を復元しました'); o.remove(); render();
+        }}
+      ]);
     }
 
     function restoreFromTrash(kind, id) {
