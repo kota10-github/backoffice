@@ -1395,8 +1395,8 @@
     function getManual(id) { return data.manuals.find(m => m.id === id && !m._deleted); }
     function getUser(id) { return data.users.find(u => u.id === id); }
     function getAssigneesForManual(mid) { return data.assignees.filter(a => a.manualId === mid).map(a => ({ ...a, user: getUser(a.userId) })); }
-    function getManualCountForProject(pid) { return data.manuals.filter(m => m && !m._deleted && m.projectId === pid).length; }
-    function getManualsByProject(pid) { return data.manuals.filter(m => m && !m._deleted && m.projectId === pid); }
+    function getManualCountForProject(pid) { if (!MANUALS_UI_ENABLED) return 0; return data.manuals.filter(m => m && !m._deleted && m.projectId === pid).length; }
+    function getManualsByProject(pid) { if (!MANUALS_UI_ENABLED) return []; return data.manuals.filter(m => m && !m._deleted && m.projectId === pid); }
     function isLive(x) { return x && !x._deleted; }
 
     // 緊急重要マトリックス (Eisenhower)。
@@ -1408,10 +1408,16 @@
     // 再度 true にすれば全機能 (サイドバータブ / タスク詳細 4 択 /
     // カレンダー & マップの色オーバーライド) が復活する。
     var MATRIX_ENABLED = false;
+    // マニュアル機能を UI から非表示にするフラグ。データ (data.manuals) は保持されるが、
+    // マップノード・サイドバー nav・プロジェクト詳細のマニュアル一覧・追加導線・ゴミ箱表示
+    // など全ての可視化と操作導線が無効化される。再び true にすれば全機能が復活する。
+    var MANUALS_UI_ENABLED = false;
     // フラグに応じてサイドバータブの可視化 (DOM 読み込み後)
     setTimeout(function(){
       var navEl = document.querySelector('.nav-item-matrix');
       if (navEl) navEl.style.display = MATRIX_ENABLED ? '' : 'none';
+      var manualsNav = document.querySelector('.nav-item[data-page="manuals"]');
+      if (manualsNav) manualsNav.style.display = MANUALS_UI_ENABLED ? '' : 'none';
     }, 0);
     var MATRIX_META = {
       1: { name: '重要・緊急',     sub: '今すぐ処理', hint: 'トラブル/締切当日 — 多いのは設計ミス',           bg: '#ef4444', light: '#fef2f2' },
@@ -1500,10 +1506,10 @@
       var opts;
       if (kind === 'project' || kind === 'subproject') {
         opts = [
-          { label: '📁 サブプロジェクト', click: function(){ showProjectDialog(projectId); } },
-          { label: '📖 マニュアル', click: function(){ navigate('manual-form',{projectId:projectId}); } },
-          { label: '✓ タスク', click: function(){ showAddProjectTask(projectId); } }
+          { label: '📁 サブプロジェクト', click: function(){ showProjectDialog(projectId); } }
         ];
+        if (MANUALS_UI_ENABLED) opts.push({ label: '📖 マニュアル', click: function(){ navigate('manual-form',{projectId:projectId}); } });
+        opts.push({ label: '✓ タスク', click: function(){ showAddProjectTask(projectId); } });
       } else {
         return;
       }
@@ -1616,7 +1622,7 @@
     function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
         function getProjectMap() {
       var liveProjects = data.projects.filter(function(p){ return p && !p._deleted; });
-      var liveManuals = (data.manuals || []).filter(function(m){ return m && !m._deleted; });
+      var liveManuals = MANUALS_UI_ENABLED ? (data.manuals || []).filter(function(m){ return m && !m._deleted; }) : [];
       function buildNode(p) {
         var node = { projectId: p.id, projectName: p.name, manuals: [], users: [], subProjects: [] };
         liveProjects.forEach(function(child) {
@@ -1675,9 +1681,15 @@
         case 'home': renderHome(main); break;
       case 'team-detail': renderTeamDetail(main); break;
       case 'project-detail': renderProjectDetail(main); break;
-            case 'manuals': renderManualList(main); break;
-        case 'manual-detail': renderManualDetail(main); break;
-        case 'manual-form': renderManualForm(main); break;
+            case 'manuals':
+              if (!MANUALS_UI_ENABLED) { navigate('home'); return; }
+              renderManualList(main); break;
+        case 'manual-detail':
+          if (!MANUALS_UI_ENABLED) { navigate('home'); return; }
+          renderManualDetail(main); break;
+        case 'manual-form':
+          if (!MANUALS_UI_ENABLED) { navigate('home'); return; }
+          renderManualForm(main); break;
         case 'tasks': renderMyTasks(main); break;
         case 'matrix':
           if (!MATRIX_ENABLED) { navigate(window.innerWidth <= 768 ? 'dashboard' : 'home'); return; }
@@ -2530,52 +2542,54 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
           タスク
         </button>
-        <button class="mobile-quick-btn" onclick="navigate('manuals')">
+        ${MANUALS_UI_ENABLED ? `<button class="mobile-quick-btn" onclick="navigate('manuals')">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           マニュアル
-        </button>
+        </button>` : ''}
         <button class="mobile-quick-btn" onclick="navigate('users')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg>
           ユーザー
         </button>
       </div>`;
 
-      // Manuals grouped by project
-      html += `<div style="margin-bottom:12px">`;
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">`;
-      html += `<h3 style="font-size:14px;font-weight:600;color:var(--fg)">マニュアル <span style="color:var(--fg-muted2);font-weight:400">${data.manuals.length}</span></h3>`;
-      html += `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--primary)" onclick="navigate('manuals')">すべて表示 →</button>`;
-      html += `</div>`;
-      // Group by project
-      const manualsByProject = {};
-      data.manuals.forEach(m => {
-        if (!manualsByProject[m.projectId]) manualsByProject[m.projectId] = [];
-        manualsByProject[m.projectId].push(m);
-      });
-      const projectIds = Object.keys(manualsByProject).map(Number);
-      if (projectIds.length === 0) {
-        html += `<div style="padding:20px;text-align:center;color:var(--fg-muted2);font-size:13px">マニュアルはまだありません</div>`;
-      } else {
-        projectIds.forEach(pid => {
-          const proj = getProject(pid);
-          const c = getProjectColor(pid);
-          const ms = manualsByProject[pid];
-          html += `<div style="margin-bottom:14px">`;
-          html += `<div onclick="navigate('project-detail',{id:${pid}})" style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px;cursor:pointer">`;
-          html += `<span style="width:4px;height:14px;border-radius:2px;background:${c.bg};flex-shrink:0"></span>`;
-          html += `<span style="font-size:12px;font-weight:600;color:${c.text}">${escapeHtml(proj?.name || '')}</span>`;
-          html += `<span style="font-size:11px;color:var(--fg-muted2)">${ms.length}</span>`;
-          html += `</div>`;
-          ms.forEach(m => {
-            html += `<div onclick="navigate('manual-detail',{id:${m.id}})" style="cursor:pointer;padding:8px 12px;margin-left:12px;display:flex;align-items:center;gap:10px;font-size:13px;border-radius:6px;transition:background .15s" onmouseover="this.style.background='var(--bg-muted)'" onmouseout="this.style.background='transparent'">`;
-            html += `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="flex-shrink:0;color:${c.bg}"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
-            html += `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.title)}</span>`;
+      // Manuals grouped by project (gated by MANUALS_UI_ENABLED)
+      if (MANUALS_UI_ENABLED) {
+        html += `<div style="margin-bottom:12px">`;
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">`;
+        html += `<h3 style="font-size:14px;font-weight:600;color:var(--fg)">マニュアル <span style="color:var(--fg-muted2);font-weight:400">${data.manuals.length}</span></h3>`;
+        html += `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--primary)" onclick="navigate('manuals')">すべて表示 →</button>`;
+        html += `</div>`;
+        const manualsByProject = {};
+        data.manuals.forEach(m => {
+          if (m._deleted) return;
+          if (!manualsByProject[m.projectId]) manualsByProject[m.projectId] = [];
+          manualsByProject[m.projectId].push(m);
+        });
+        const projectIds = Object.keys(manualsByProject).map(Number);
+        if (projectIds.length === 0) {
+          html += `<div style="padding:20px;text-align:center;color:var(--fg-muted2);font-size:13px">マニュアルはまだありません</div>`;
+        } else {
+          projectIds.forEach(pid => {
+            const proj = getProject(pid);
+            const c = getProjectColor(pid);
+            const ms = manualsByProject[pid];
+            html += `<div style="margin-bottom:14px">`;
+            html += `<div onclick="navigate('project-detail',{id:${pid}})" style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px;cursor:pointer">`;
+            html += `<span style="width:4px;height:14px;border-radius:2px;background:${c.bg};flex-shrink:0"></span>`;
+            html += `<span style="font-size:12px;font-weight:600;color:${c.text}">${escapeHtml(proj?.name || '')}</span>`;
+            html += `<span style="font-size:11px;color:var(--fg-muted2)">${ms.length}</span>`;
+            html += `</div>`;
+            ms.forEach(m => {
+              html += `<div onclick="navigate('manual-detail',{id:${m.id}})" style="cursor:pointer;padding:8px 12px;margin-left:12px;display:flex;align-items:center;gap:10px;font-size:13px;border-radius:6px;transition:background .15s" onmouseover="this.style.background='var(--bg-muted)'" onmouseout="this.style.background='transparent'">`;
+              html += `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="flex-shrink:0;color:${c.bg}"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+              html += `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.title)}</span>`;
+              html += `</div>`;
+            });
             html += `</div>`;
           });
-          html += `</div>`;
-        });
+        }
+        html += `</div>`;
       }
-      html += `</div>`;
 
       el.innerHTML = html;
     }
@@ -3194,7 +3208,7 @@
       let html = `<div class="doc-page">`;
       html += `<button class="back-float" onclick="${backAction}">${icons.arrowLeft} ${backLabel}</button>`;
       html += `<div class="manual-actions-float no-print" style="position:fixed;top:16px;right:16px;z-index:50;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="navigate('manual-form',{projectId:${project.id}})">${icons.plus} マニュアル作成</button>
+        ${MANUALS_UI_ENABLED ? `<button class="btn btn-primary btn-sm" onclick="navigate('manual-form',{projectId:${project.id}})">${icons.plus} マニュアル作成</button>` : ''}
         <button class="btn btn-outline btn-sm" style="color:var(--destructive);border-color:var(--destructive)" onclick="confirmDeleteProject(${project.id})">${icons.trash} 削除</button>
       </div>`;
       html += `<div class="doc-layout">`;
@@ -3202,7 +3216,7 @@
       html += `<aside class="doc-toc">
         <div class="doc-toc-title">目次</div>
         <a href="#sec-overview">概要</a>
-        <a href="#sec-children">マニュアル・サブプロジェクト</a>
+        <a href="#sec-children">${MANUALS_UI_ENABLED ? 'マニュアル・サブプロジェクト' : 'サブプロジェクト'}</a>
         <a href="#sec-tasks">タスク</a>
         <a href="#sec-memo">メモ・思考整理</a>
         <div id="memo-toc" style="margin-top:12px"></div>
@@ -3222,7 +3236,7 @@
         ${currentTag ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+currentTag.color+'"></span>' : ''}
       </div>`;
       // Section: Manuals & sub-projects
-      html += `<h2 id="sec-children" class="doc-section-title" style="font-size:15px;font-weight:600;color:var(--fg-muted);margin:32px 0 8px">マニュアル・サブプロジェクト${(manuals.length + subProjects.length) > 0 ? ' <span style="color:var(--fg-muted2);font-weight:400">' + (manuals.length + subProjects.length) + '</span>' : ''}</h2>`;
+      html += `<h2 id="sec-children" class="doc-section-title" style="font-size:15px;font-weight:600;color:var(--fg-muted);margin:32px 0 8px">${MANUALS_UI_ENABLED ? 'マニュアル・サブプロジェクト' : 'サブプロジェクト'}${(manuals.length + subProjects.length) > 0 ? ' <span style="color:var(--fg-muted2);font-weight:400">' + (manuals.length + subProjects.length) + '</span>' : ''}</h2>`;
       if (manuals.length === 0 && subProjects.length === 0) {
         html += `<p style="color:var(--fg-muted2);font-size:13px">—</p>`;
       } else {
@@ -3242,7 +3256,7 @@
         html += `</div>`;
       }
       html += `<div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">
-        <button onclick="navigate('manual-form',{projectId:${project.id}})" style="background:none;border:none;padding:0;color:var(--primary);font-size:13px;cursor:pointer">+ マニュアル</button>
+        ${MANUALS_UI_ENABLED ? `<button onclick="navigate('manual-form',{projectId:${project.id}})" style="background:none;border:none;padding:0;color:var(--primary);font-size:13px;cursor:pointer">+ マニュアル</button>` : ''}
         <button onclick="showProjectDialog(${project.id})" style="background:none;border:none;padding:0;color:var(--primary);font-size:13px;cursor:pointer">+ サブプロジェクト</button>
       </div>`;
       // Section: Tasks (with nested children)
@@ -6491,7 +6505,9 @@
       // 全 tombstone を type 付きで集約
       var items = [];
       (data.projects || []).forEach(function(p){ if (p && p._deleted) items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0 }); });
-      (data.manuals || []).forEach(function(m){ if (m && m._deleted) items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0 }); });
+      if (MANUALS_UI_ENABLED) {
+        (data.manuals || []).forEach(function(m){ if (m && m._deleted) items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0 }); });
+      }
       (data.projectTasks || []).forEach(function(t){ if (t && t._deleted) items.push({ kind:'projectTasks', label:'タスク', icon:icons.target, name:t.title||'無題', item:t, ts:t._modTs||0 }); });
 
       var fmtTs = function(ts){
@@ -6614,7 +6630,8 @@
       showModal('すべて復元', '<p class="confirm-text">ゴミ箱内のすべてのアイテムを復元しますか？</p>', [
         { label: 'キャンセル', onClick: function(o){ o.remove(); } },
         { label: '復元', class: 'btn btn-primary', onClick: function(o){
-          ['projects','manuals','projectTasks'].forEach(function(kind){
+          var kinds = MANUALS_UI_ENABLED ? ['projects','manuals','projectTasks'] : ['projects','projectTasks'];
+          kinds.forEach(function(kind){
             (data[kind] || []).forEach(function(item){
               if (item && item._deleted) {
                 item._deleted = false;
@@ -6764,7 +6781,7 @@
       const project = getProject(id);
       const manualCount = getManualCountForProject(id);
       showModal('プロジェクトを削除',
-        `<p class="confirm-text">「${escapeHtml(project?.name || '')}」をゴミ箱に移動しますか？${manualCount > 0 ? `このプロジェクトに含まれる ${manualCount} 件のマニュアルも一緒に移動されます。` : ''}サイドバーのゴミ箱から復元できます。</p>`,
+        `<p class="confirm-text">「${escapeHtml(project?.name || '')}」をゴミ箱に移動しますか？${(MANUALS_UI_ENABLED && manualCount > 0) ? `このプロジェクトに含まれる ${manualCount} 件のマニュアルも一緒に移動されます。` : ''}サイドバーのゴミ箱から復元できます。</p>`,
         [
           { label: 'キャンセル', onClick: o => o.remove() },
           { label: '削除', class: 'btn btn-destructive', onClick: o => {
