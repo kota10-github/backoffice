@@ -859,7 +859,7 @@
 .editable-desc:focus{border-color:var(--primary);background:var(--bg);box-shadow:0 0 0 3px rgba(37,99,235,.1);color:var(--fg)}
 .editable-desc:empty::before{content:attr(data-placeholder);color:var(--fg-muted2);pointer-events:none}
 
-/* 業務管理ページ: 業務形態切り替えタブ */
+/* 業務管理ページ: 緊急度切り替えタブ */
 .work-tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .work-tab{padding:10px 16px;border:none;background:transparent;cursor:pointer;font-size:13px;color:var(--fg-muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s,border-color .12s;display:inline-flex;align-items:center;gap:6px}
 .work-tab:hover{color:var(--fg)}
@@ -899,17 +899,9 @@
           マトリックス
         </button>
         <div class="sidebar-section-label">設定</div>
-        <button class="nav-item" data-page="users" onclick="navigate('users')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          ユーザー管理
-        </button>
         <button class="nav-item" data-page="tags" onclick="navigate('tags')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          業務形態管理
-        </button>
-        <button class="nav-item" data-page="permissions" onclick="navigate('permissions')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          権限管理
+          緊急度管理
         </button>
         <button class="nav-item" data-page="trash" onclick="navigate('trash')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -1122,7 +1114,7 @@
           } catch(e) {}
         }
       })();
-      // 業務形態は『許可 ID リスト』方式。name-based はリネームを破壊するので
+      // 緊急度は『許可 ID リスト』方式。name-based はリネームを破壊するので
       // 廃止。data._allowedTagIds に明示的に登録された ID だけが表に出る。
       // - 初回 (リスト未設定): 現行の 感覚/仕組み/作業 を見つけて ID を凍結
       // - 新規追加: showTagDialog で許可リストに append
@@ -1341,7 +1333,7 @@
       if (page === 'goal-detail') crumbs.push({label: '目的ツリー', page: 'goals'}, {label: '目的詳細', current: true});
       if (page === 'tasks') crumbs.push({label: 'マイタスク', current: true});
       if (page === 'users') crumbs.push({label: 'ユーザー管理', current: true});
-      if (page === 'tags') crumbs.push({label: '業務形態管理', current: true});
+      if (page === 'tags') crumbs.push({label: '緊急度管理', current: true});
       if (page === 'work-mgmt') crumbs.push({label: '業務管理', current: true});
       if (page === 'permissions') crumbs.push({label: '権限管理', current: true});
       if (page === 'member-page' && params.userId) {
@@ -1702,10 +1694,10 @@
       case 'todo-detail': renderTodoDetail(main); break;
       case 'daily-detail': renderDailyDetail(main); break;
       case 'goal-detail': renderGoalDetail(main); break;
-        case 'users': renderUsers(main); break;
+        case 'users': navigate('home'); return;
         case 'tags': renderTags(main); break;
         case 'work-mgmt': renderWorkMgmt(main); break;
-        case 'permissions': renderPermissions(main); break;
+        case 'permissions': navigate('home'); return;
         case 'trash': renderTrash(main); break;
         case 'member-page': renderMemberPage(main); break;
         default: main.innerHTML = '<p>Not Found</p>';
@@ -1721,7 +1713,7 @@
       return { bg: tag.color, light: tag.color + '20', text: tag.color };
     }
 
-    // 業務管理ページの選択中業務形態 (null = すべて, それ以外は tag.id)
+    // 業務管理ページの選択中緊急度 (null = すべて, それ以外は tag.id)
     var _workMgmtSelectedTag = (function(){
       try {
         var v = localStorage.getItem('bo-work-mgmt-tag');
@@ -1842,7 +1834,7 @@
         if (tag) {
           html += '<span style="font-size:11px;padding:1px 8px;border-radius:8px;background:' + tag.color + '22;color:' + tag.color + '">' + escapeHtml(tag.name) + '</span>';
         } else {
-          html += '<span style="font-size:11px;padding:1px 8px;border-radius:8px;background:var(--bg-muted);color:var(--fg-muted2)">業務形態未設定</span>';
+          html += '<span style="font-size:11px;padding:1px 8px;border-radius:8px;background:var(--bg-muted);color:var(--fg-muted2)">緊急度未設定</span>';
         }
         html += '</div>';
         if (p.description) {
@@ -1871,16 +1863,16 @@
     function renderTags(el) {
       var html = '';
       html += renderBreadcrumb();
-      html += '<h1 class="page-title" style="margin-bottom:24px">業務形態管理</h1>';
+      html += '<h1 class="page-title" style="margin-bottom:24px">緊急度管理</h1>';
 
       // Project tags section
       html += '<section style="margin-bottom:32px">';
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
-      html += '<h2 style="font-size:16px;font-weight:600">業務形態</h2>';
+      html += '<h2 style="font-size:16px;font-weight:600">緊急度</h2>';
       html += '<button class="btn btn-primary btn-sm" onclick="showTagDialog()">+ 新規</button></div>';
       var liveTagsList = (data.tags || []).filter(function(t){ return !t._deleted; });
       if (liveTagsList.length === 0) {
-        html += '<div class="empty" style="padding:20px"><p style="font-size:13px;color:var(--fg-muted2)">業務形態がありません</p></div>';
+        html += '<div class="empty" style="padding:20px"><p style="font-size:13px;color:var(--fg-muted2)">緊急度がありません</p></div>';
       } else {
         html += '<div style="display:flex;flex-direction:column;gap:8px">';
         liveTagsList.forEach(function(tag) {
@@ -1957,27 +1949,27 @@
         var sel = (editTag && editTag.color === c) ? ' style="outline:3px solid var(--fg);outline-offset:2px;border-radius:50%"' : '';
         return '<span class="tag-color-opt" data-color="' + c + '"' + sel + ' onclick="document.querySelectorAll(\'.tag-color-opt\').forEach(function(e){e.style.outline=\'\'});this.style.outline=\'3px solid var(--fg)\';this.style.outlineOffset=\'2px\';this.style.borderRadius=\'50%\'" style="width:28px;height:28px;border-radius:50%;background:' + c + ';cursor:pointer;display:inline-block"></span>';
       }).join('');
-      showModal(editTag ? '業務形態を編集' : '新規業務形態',
-        '<div class="form-group"><label class="label">業務形態名</label><input class="input" id="d-tag-name" value="' + escapeHtml(editTag ? editTag.name : '') + '" placeholder="業務形態名"></div><div class="form-group"><label class="label">カラー</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">' + colorOptions + '</div></div>',
+      showModal(editTag ? '緊急度を編集' : '新規緊急度',
+        '<div class="form-group"><label class="label">緊急度名</label><input class="input" id="d-tag-name" value="' + escapeHtml(editTag ? editTag.name : '') + '" placeholder="緊急度名"></div><div class="form-group"><label class="label">カラー</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">' + colorOptions + '</div></div>',
         [
           { label: 'キャンセル', onClick: function(o) { o.remove(); } },
           { label: editTag ? '更新' : '作成', class: 'btn btn-primary', onClick: function(o) {
             var name = document.getElementById('d-tag-name').value.trim();
-            if (!name) { toast('業務形態名を入力してください'); return; }
+            if (!name) { toast('緊急度名を入力してください'); return; }
             var selColor = document.querySelector('.tag-color-opt[style*="outline: 3px"]') || document.querySelector('.tag-color-opt[style*="outline:3px"]');
             var color = selColor ? selColor.getAttribute('data-color') : TAG_PRESET_COLORS[0];
             if (editTag) {
               editTag.name = name; editTag.color = color;
               editTag._modTs = bumpModTs(editTag._modTs);
               markDirty('tags', editTag.id);
-              toast('業務形態を更新しました');
+              toast('緊急度を更新しました');
             } else {
               if (!data.tags) data.tags = [];
               var newId = data.nextTagId++;
               data.tags.push({ id: newId, name: name, color: color, _modTs: bumpModTs(0) });
               if (typeof allowTagId === 'function') allowTagId(newId);
               markDirty('tags', newId);
-              toast('業務形態を作成しました');
+              toast('緊急度を作成しました');
             }
             saveData(); o.remove(); render();
           }}
@@ -1988,8 +1980,8 @@
     function confirmDeleteTag(tagId) {
       var tag = (data.tags || []).find(function(t) { return t.id === tagId; });
       if (!tag) return;
-      showModal('業務形態の削除',
-        '<p class="confirm-text">業務形態「' + escapeHtml(tag.name) + '」を削除しますか？この業務形態が付いたプロジェクトでは解除されます。</p>',
+      showModal('緊急度の削除',
+        '<p class="confirm-text">緊急度「' + escapeHtml(tag.name) + '」を削除しますか？この緊急度が付いたプロジェクトでは解除されます。</p>',
         [
           { label: 'キャンセル', onClick: function(o) { o.remove(); } },
           { label: '削除', class: 'btn btn-destructive', onClick: function(o) {
@@ -1998,7 +1990,7 @@
             if (typeof disallowTagId === 'function') disallowTagId(tagId);
             data.projects.forEach(function(p) { if (p.tagId === tagId) p.tagId = null; });
             markDirty('tags', tagId);
-            saveData(); o.remove(); render(); toast('業務形態を削除しました');
+            saveData(); o.remove(); render(); toast('緊急度を削除しました');
           }}
         ]
       );
@@ -2546,10 +2538,6 @@
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           マニュアル
         </button>` : ''}
-        <button class="mobile-quick-btn" onclick="navigate('users')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg>
-          ユーザー
-        </button>
       </div>`;
 
       // Manuals grouped by project (gated by MANUALS_UI_ENABLED)
@@ -3228,7 +3216,7 @@
       html += `<p class="editable-desc" contenteditable="true" id="proj-desc-edit" data-placeholder="説明を追加..." onblur="saveProjectDescInline(${project.id})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}" style="color:var(--fg-muted);margin-bottom:16px">${project.description ? escapeHtml(project.description) : ''}</p>`;
       // Overview: inline tag
       html += `<div id="sec-overview" style="display:flex;align-items:center;gap:8px;margin-bottom:24px;font-size:13px;color:var(--fg-muted)">
-        <span>業務形態</span>
+        <span>緊急度</span>
         <select id="proj-tag-select" onchange="changeProjectTag(${project.id}, this.value)" style="padding:2px 6px;border:none;background:transparent;color:var(--fg);font-size:13px;cursor:pointer">
           <option value="">なし</option>
           ${(data.tags||[]).filter(t=>t && !t._deleted).map(t=>'<option value="'+t.id+'"'+(project.tagId===t.id?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')}
@@ -5327,7 +5315,7 @@
           return copy;
         });
       }
-      // 業務形態の許可外を物理削除した状態で push (リモートに残骸を残さない)
+      // 緊急度の許可外を物理削除した状態で push (リモートに残骸を残さない)
       if (Array.isArray(slim.tags) && typeof purgeTags === 'function') {
         slim.tags = purgeTags(slim.tags);
       }
@@ -5368,7 +5356,7 @@
     // Items only on local are preserved. manual.history is merged by ts (append missing).
     function mergeRemoteIntoLocal(remote) {
       if (!remote || typeof remote !== 'object') return;
-      // 業務形態のホワイトリスト: リモートが持っていても不許可名は merge 前に捨てる
+      // 緊急度のホワイトリスト: リモートが持っていても不許可名は merge 前に捨てる
       if (Array.isArray(remote.tags) && typeof purgeTags === 'function') {
         remote.tags = purgeTags(remote.tags);
       }
@@ -6693,7 +6681,7 @@
       showModal(isEdit ? 'プロジェクト編集' : '新規プロジェクト',
         `<div class="form-group"><label class="label">プロジェクト名</label><input class="input" id="d-proj-name" value="${escapeHtml(editProject?.name || '')}" placeholder="プロジェクト名を入力"></div>
         <div class="form-group"><label class="label">説明（任意）</label><textarea class="textarea" id="d-proj-desc" rows="3" placeholder="プロジェクトの説明">${escapeHtml(editProject?.description || '')}</textarea></div>
-        <div class="form-group"><label class="label">業務形態</label><select class="input" id="d-proj-tag"><option value="">未設定</option>${(data.tags||[]).filter(t=>t && !t._deleted).map(t=>'<option value="'+t.id+'"'+((editProject&&editProject.tagId===t.id)?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')}</select></div>`,
+        <div class="form-group"><label class="label">緊急度</label><select class="input" id="d-proj-tag"><option value="">未設定</option>${(data.tags||[]).filter(t=>t && !t._deleted).map(t=>'<option value="'+t.id+'"'+((editProject&&editProject.tagId===t.id)?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')}</select></div>`,
         [
           { label: 'キャンセル', onClick: o => o.remove() },
           { label: isEdit ? '更新' : '作成', class: 'btn btn-primary', onClick: o => {
@@ -6702,7 +6690,7 @@
             const desc = document.getElementById('d-proj-desc').value.trim();
             var tagVal = document.getElementById('d-proj-tag').value;
             var tagId = tagVal ? parseInt(tagVal) : null;
-            // 選択された業務形態が生きてるか検証 (tombstone は不可)
+            // 選択された緊急度が生きてるか検証 (tombstone は不可)
             if (tagId != null) {
               var _tag = (data.tags || []).find(function(t){ return t.id === tagId && !t._deleted; });
               if (!_tag) tagId = null;
@@ -6763,7 +6751,7 @@
       const proj = data.projects.find(p => p.id === projectId);
       if (!proj) return;
       const newId = tagValue ? parseInt(tagValue) : null;
-      // 選択された業務形態が生きてるか検証 (tombstone は不可)
+      // 選択された緊急度が生きてるか検証 (tombstone は不可)
       if (newId != null) {
         const tag = (data.tags || []).find(t => t.id === newId && !t._deleted);
         proj.tagId = tag ? newId : null;
@@ -6774,7 +6762,7 @@
       markDirty('projects', proj.id);
       saveData();
       render();
-      toast('業務形態を変更しました');
+      toast('緊急度を変更しました');
     }
 
     function confirmDeleteProject(id) {
