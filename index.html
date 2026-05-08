@@ -1577,6 +1577,57 @@
       }, 0);
     }
     window.showProjectContextMenu = showProjectContextMenu;
+
+    // モバイル長押しでコンテキストメニュー。document レベルの delegation なので
+    // 再レンダーされても再 bind 不要。500ms 押し続けたら発火、移動 / 早 release で
+    // キャンセル。発火時はバブリング後の click をブロック (誤動作で詳細ページに飛ぶ
+    // のを防ぐ)。
+    (function setupLongPressContextMenu(){
+      var LONG_PRESS_MS = 500;
+      var MOVE_TOLERANCE_PX = 10;
+      var pressTimer = null, fired = false, startX = 0, startY = 0;
+      function projectIdFromTouch(target){
+        if (!target || !target.closest) return null;
+        var node = target.closest('[data-node]');
+        if (!node) return null;
+        var dn = node.dataset.node || '';
+        var m = dn.match(/^(?:proj|sp)-(\d+)$/);
+        return m ? Number(m[1]) : null;
+      }
+      document.addEventListener('touchstart', function(e){
+        fired = false;
+        if (e.touches.length !== 1) return;
+        var pid = projectIdFromTouch(e.target);
+        if (pid == null) return;
+        startX = e.touches[0].pageX; startY = e.touches[0].pageY;
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(function(){
+          fired = true;
+          showProjectContextMenu({ preventDefault: function(){}, stopPropagation: function(){}, pageX: startX, pageY: startY }, pid);
+        }, LONG_PRESS_MS);
+      }, { passive: true });
+      document.addEventListener('touchmove', function(e){
+        if (!pressTimer) return;
+        var t = e.touches[0]; if (!t) return;
+        if (Math.abs(t.pageX - startX) > MOVE_TOLERANCE_PX || Math.abs(t.pageY - startY) > MOVE_TOLERANCE_PX) {
+          clearTimeout(pressTimer); pressTimer = null;
+        }
+      }, { passive: true });
+      document.addEventListener('touchend', function(){
+        clearTimeout(pressTimer); pressTimer = null;
+      });
+      document.addEventListener('touchcancel', function(){
+        clearTimeout(pressTimer); pressTimer = null;
+      });
+      // 長押しが発火していたら、続いて発生する click を握りつぶす (詳細遷移を防ぐ)
+      document.addEventListener('click', function(e){
+        if (fired) {
+          fired = false;
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }, true);
+    })();
     function getTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid; }); }
     function getTopLevelTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid && !t.parentTaskId; }); }
     function getChildTasks(parentId) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.parentTaskId === parentId; }); }
