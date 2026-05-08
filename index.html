@@ -1538,6 +1538,45 @@
       }, 0);
     }
     window.showAddOptionsPopup = showAddOptionsPopup;
+
+    // マップ上のプロジェクトを右クリックで開く簡易コンテキストメニュー。
+    // 「削除」(=ゴミ箱に移動) のみ提供。クリック位置に表示。
+    function showProjectContextMenu(event, projectId) {
+      event.preventDefault();
+      event.stopPropagation();
+      document.querySelectorAll('.add-popup').forEach(function(p){ p.remove(); });
+      var pop = document.createElement('div');
+      pop.className = 'add-popup';
+      var btn = document.createElement('button');
+      btn.style.color = 'var(--destructive)';
+      btn.innerHTML = '🗑 削除';
+      btn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        pop.remove();
+        confirmDeleteProject(projectId);
+      });
+      pop.appendChild(btn);
+      document.body.appendChild(pop);
+      var pw = pop.offsetWidth, ph = pop.offsetHeight;
+      var left = event.pageX;
+      var top = event.pageY;
+      if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+      if (top + ph > window.innerHeight + window.scrollY - 8) top = event.pageY - ph;
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      setTimeout(function(){
+        var onDoc = function(ev){
+          if (!pop.contains(ev.target)) {
+            pop.remove();
+            document.removeEventListener('click', onDoc);
+            document.removeEventListener('contextmenu', onDoc);
+          }
+        };
+        document.addEventListener('click', onDoc);
+        document.addEventListener('contextmenu', onDoc);
+      }, 0);
+    }
+    window.showProjectContextMenu = showProjectContextMenu;
     function getTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid; }); }
     function getTopLevelTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid && !t.parentTaskId; }); }
     function getChildTasks(parentId) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.parentTaskId === parentId; }); }
@@ -2634,7 +2673,7 @@
           var projHasTabChildren = (projTasks.filter(function(t){return !t.done}).length + (proj.subProjects ? proj.subProjects.length : 0)) > 0;
           html += `<div class="project-branch${projCollapsed ? ' collapsed' : ''}">`;
           html += `<div class="proj-col-wrap">`;
-          html += `<div class="node-project-standalone" data-node="proj-${proj.projectId}" draggable="true" ondragstart="handleProjectDragStart(event,${proj.projectId})" ondragend="handleProjectDragEnd(event)" ondragover="handleProjectDragOver(event,${proj.projectId})" ondragleave="this.classList.remove('drop-target','drop-before','drop-after')" ondrop="handleProjectDrop(event,${proj.projectId})" style="border-color:${c.bg};background:${c.light};color:${c.text}" onclick="navigate('project-detail',{id:${proj.projectId}})">`;
+          html += `<div class="node-project-standalone" data-node="proj-${proj.projectId}" draggable="true" ondragstart="handleProjectDragStart(event,${proj.projectId})" ondragend="handleProjectDragEnd(event)" ondragover="handleProjectDragOver(event,${proj.projectId})" ondragleave="this.classList.remove('drop-target','drop-before','drop-after')" ondrop="handleProjectDrop(event,${proj.projectId})" oncontextmenu="showProjectContextMenu(event,${proj.projectId})" style="border-color:${c.bg};background:${c.light};color:${c.text}" onclick="navigate('project-detail',{id:${proj.projectId}})">`;
           var toggleBtn = projHasChildren ? `<button class="map-collapse-toggle" title="${projCollapsed ? '展開' : '折りたたむ'}" onclick="event.stopPropagation();toggleMapCollapse('${projKey}', this)">${projCollapsed ? '▸' : '▾'}</button>` : '';
           html += `<div style="font-weight:600;display:flex;align-items:center"><span>${escapeHtml(proj.projectName)}<span style="opacity:.6;font-size:11px;margin-left:4px">(${proj.manuals.length + projTasks.filter(function(t){return !t.done}).length})</span></span>${toggleBtn}</div>`;
           if (proj.users.length > 0) {
@@ -2688,7 +2727,7 @@
           var spToggle = spHasChildren ? `<button class="map-collapse-toggle" title="${spCollapsed ? '展開' : '折りたたむ'}" onclick="event.stopPropagation();toggleMapCollapse('${spKey}', this)">${spCollapsed ? '▸' : '▾'}</button>` : '';
           html += '<div class="sub-tree-row' + (spCollapsed ? ' collapsed' : '') + '">';
           html += '<div class="sub-tree-card-wrap">';
-          html += `<div class="node-manual" data-node="sp-${sp.projectId}" draggable="true" ondragstart="handleProjectDragStart(event,${sp.projectId})" ondragend="handleProjectDragEnd(event)" ondragover="handleProjectDragOver(event,${sp.projectId})" ondragleave="this.classList.remove('drop-target','drop-before','drop-after')" ondrop="handleProjectDrop(event,${sp.projectId})" onclick="navigate('project-detail',{id:${sp.projectId}})" style="border-left:3px solid ${sc.bg};background:${sc.light}"><div class="node-manual-title" style="color:${sc.bg};display:flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:.7"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7-4H4a2 2 0 0 0-2 2v14z"/></svg><span>${escapeHtml(sp.projectName)}</span>${spToggle}</div>`;
+          html += `<div class="node-manual" data-node="sp-${sp.projectId}" draggable="true" ondragstart="handleProjectDragStart(event,${sp.projectId})" ondragend="handleProjectDragEnd(event)" ondragover="handleProjectDragOver(event,${sp.projectId})" ondragleave="this.classList.remove('drop-target','drop-before','drop-after')" ondrop="handleProjectDrop(event,${sp.projectId})" oncontextmenu="showProjectContextMenu(event,${sp.projectId})" onclick="navigate('project-detail',{id:${sp.projectId}})" style="border-left:3px solid ${sc.bg};background:${sc.light}"><div class="node-manual-title" style="color:${sc.bg};display:flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:.7"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7-4H4a2 2 0 0 0-2 2v14z"/></svg><span>${escapeHtml(sp.projectName)}</span>${spToggle}</div>`;
           html += `<div class="node-manual-purpose">${sp.subProjects.length > 0 ? '<span style="opacity:.6;font-size:10px">' + sp.subProjects.length + '件のサブ</span>' : ''}${spTasks.length > 0 ? '<span style="opacity:.6;font-size:10px;margin-left:4px">' + spTasks.filter(function(t){return t.done}).length + '/' + spTasks.length + ' タスク</span>' : ''}</div></div>`;
           // 右側 + (子要素を追加: マニュアル / タスク / 孫サブプロジェクト)
           // タブ子 (タスク/サブ) がある場合は右+ を非表示。マニュアルのみの末端は右+を出す
