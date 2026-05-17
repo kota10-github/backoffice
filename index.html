@@ -899,10 +899,6 @@
           マトリックス
         </button>
         <div class="sidebar-section-label">設定</div>
-        <button class="nav-item" data-page="tags" onclick="navigate('tags')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          緊急度管理
-        </button>
         <button class="nav-item" data-page="trash" onclick="navigate('trash')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
           ゴミ箱
@@ -1785,7 +1781,7 @@
       case 'daily-detail': renderDailyDetail(main); break;
       case 'goal-detail': renderGoalDetail(main); break;
         case 'users': navigate('home'); return;
-        case 'tags': renderTags(main); break;
+        case 'tags': navigate('home'); return;
         case 'work-mgmt': renderWorkMgmt(main); break;
         case 'permissions': navigate('home'); return;
         case 'trash': renderTrash(main); break;
@@ -3304,15 +3300,7 @@
       html += renderBreadcrumb();
       html += `<h1 class="doc-title editable-title" contenteditable="true" id="proj-title-edit" onblur="saveProjectTitleInline(${project.id})" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${escapeHtml(project.name)}</h1>`;
       html += `<p class="editable-desc" contenteditable="true" id="proj-desc-edit" data-placeholder="説明を追加..." onblur="saveProjectDescInline(${project.id})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}" style="color:var(--fg-muted);margin-bottom:16px">${project.description ? escapeHtml(project.description) : ''}</p>`;
-      // Overview: inline tag
-      html += `<div id="sec-overview" style="display:flex;align-items:center;gap:8px;margin-bottom:24px;font-size:13px;color:var(--fg-muted)">
-        <span>緊急度</span>
-        <select id="proj-tag-select" onchange="changeProjectTag(${project.id}, this.value)" style="padding:2px 6px;border:none;background:transparent;color:var(--fg);font-size:13px;cursor:pointer">
-          <option value="">なし</option>
-          ${(data.tags||[]).filter(t=>t && !t._deleted).map(t=>'<option value="'+t.id+'"'+(project.tagId===t.id?' selected':'')+'>'+escapeHtml(t.name)+'</option>').join('')}
-        </select>
-        ${currentTag ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+currentTag.color+'"></span>' : ''}
-      </div>`;
+      // 緊急度セレクタは UI 廃止 (data.tags / project.tagId は互換のため残置)
       // Section: Manuals & sub-projects
       html += `<h2 id="sec-children" class="doc-section-title" style="font-size:15px;font-weight:600;color:var(--fg-muted);margin:32px 0 8px">${MANUALS_UI_ENABLED ? 'マニュアル・サブプロジェクト' : 'サブプロジェクト'}${(manuals.length + subProjects.length) > 0 ? ' <span style="color:var(--fg-muted2);font-weight:400">' + (manuals.length + subProjects.length) + '</span>' : ''}</h2>`;
       if (manuals.length === 0 && subProjects.length === 0) {
