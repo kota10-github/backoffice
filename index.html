@@ -1106,6 +1106,32 @@
           } catch(e) {}
         }
       })();
+      // 一度限りの色リセット: 「高単価アフィ」プロジェクトの tagId を null に戻す
+      // (緊急度セレクタ UI 廃止後、ユーザーから「マップでの色を元に戻して」依頼)。
+      (function resetKotankaAfiColor(){
+        if (data._kotankaAfiColorResetV1) return;
+        var now = Date.now();
+        var changed = false;
+        (data.projects || []).forEach(function(p){
+          if (p && !p._deleted && (p.name || '') === '高単価アフィ' && p.tagId != null) {
+            p.tagId = null;
+            p._modTs = (p._modTs && p._modTs >= now) ? p._modTs + 1 : now;
+            changed = true;
+            try {
+              var dirtyKey = 'bo-manual-dirty';
+              var raw = localStorage.getItem(dirtyKey);
+              var dm = raw ? JSON.parse(raw) : {};
+              if (!dm || Array.isArray(dm)) dm = {};
+              dm['projects:' + p.id] = now;
+              localStorage.setItem(dirtyKey, JSON.stringify(dm));
+            } catch(e) {}
+          }
+        });
+        data._kotankaAfiColorResetV1 = true;
+        if (changed) {
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+        }
+      })();
       // 緊急度は『許可 ID リスト』方式。name-based はリネームを破壊するので
       // 廃止。data._allowedTagIds に明示的に登録された ID だけが表に出る。
       // - 初回 (リスト未設定): 現行の 感覚/仕組み/作業 を見つけて ID を凍結
