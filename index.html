@@ -1439,6 +1439,23 @@
       var m = MATRIX_META[q];
       return m ? { bg: m.bg, light: m.light, text: m.bg } : null;
     }
+    // 子タスクは親タスクの matrixQ を継承する。task 自身に matrixQ が設定されて
+    // いればそれを返し、なければ parentTaskId を遡って最初に見つかった ancestor
+    // の matrixQ を返す。マトリックスは parent task のみ表示するため、子タスク
+    // のマップ/カレンダー上の色付けはこの関数で親の分類を借用する。
+    function getEffectiveMatrixQ(task) {
+      if (!task) return null;
+      var seen = {};
+      var cur = task;
+      var guard = 0;
+      while (cur && guard++ < 20) {
+        if (cur.matrixQ === 1 || cur.matrixQ === 2 || cur.matrixQ === 3 || cur.matrixQ === 4) return cur.matrixQ;
+        if (cur.parentTaskId == null || seen[cur.parentTaskId]) return null;
+        seen[cur.id] = true;
+        cur = (data.projectTasks || []).find(function(x){ return x && !x._deleted && x.id === cur.parentTaskId; });
+      }
+      return null;
+    }
     // 親プロジェクトを遡って "Grandparent › Parent › Child" を返す (live のみ)
     function _getProjectPathLabel(projectId) {
       if (projectId == null) return '';
@@ -2440,8 +2457,9 @@
         // Task chips (drag 可能、PC では hold-drag で別日に移動)
         var shown = dayTasks.slice(0, maxChips);
         shown.forEach(function(t){
-          // matrixQ があればその色を優先 (緊急重要)、なければプロジェクト色
-          var mc = MATRIX_ENABLED ? getMatrixColor(t.matrixQ) : null;
+          // matrixQ があればその色を優先 (緊急重要)、なければプロジェクト色。
+          // 子タスクは親の matrixQ を継承 (getEffectiveMatrixQ)。
+          var mc = MATRIX_ENABLED ? getMatrixColor(getEffectiveMatrixQ(t)) : null;
           var pc = getProjectColor(t.projectId);
           var chipBg = mc ? mc.bg : pc.bg;
           html += '<div class="dash-cal-task" data-task="' + t.id + '" draggable="true"' +
@@ -2861,8 +2879,9 @@
           var taskToggle = taskHasChildren ? '<button class="map-collapse-toggle" title="' + (taskCollapsed ? '展開' : '折りたたむ') + '" onclick="event.stopPropagation();toggleMapCollapse(\'' + taskKey + '\', this)">' + (taskCollapsed ? '▸' : '▾') + '</button>' : '';
           html += '<div class="sub-tree-row' + (taskCollapsed ? ' collapsed' : '') + '" data-task="' + t.id + '">';
           html += '<div class="sub-tree-card-wrap">';
-          // matrixQ があれば色をその quadrant カラーで上書き
-          var mc = MATRIX_ENABLED ? getMatrixColor(t.matrixQ) : null;
+          // matrixQ があれば色をその quadrant カラーで上書き。
+          // 子タスクは親 task の matrixQ を継承 (getEffectiveMatrixQ)。
+          var mc = MATRIX_ENABLED ? getMatrixColor(getEffectiveMatrixQ(t)) : null;
           var taskBorder = t.done ? '#059669' : (mc ? mc.bg : color.bg);
           var taskBg = mc ? mc.light : color.light;
           html += '<div class="node-manual" data-node="task-' + t.id + '" draggable="true"' +
@@ -4960,7 +4979,9 @@
 
     // ===== 緊急重要マトリックス =====
     function renderMatrix(el) {
-      var liveTasks = (data.projectTasks || []).filter(function(t){ return t && !t._deleted && !t.done; });
+      // マトリックスには親タスクのみ表示する。子タスクは親の分類を継承するため、
+      // マップ・カレンダー側でだけ色が適用される (getEffectiveMatrixQ)。
+      var liveTasks = (data.projectTasks || []).filter(function(t){ return t && !t._deleted && !t.done && t.parentTaskId == null; });
       // q -> tasks
       var byQ = {1:[], 2:[], 3:[], 4:[], 0:[]}; // 0 = unassigned
       liveTasks.forEach(function(t){
