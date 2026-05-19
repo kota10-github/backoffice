@@ -1106,6 +1106,47 @@
           } catch(e) {}
         }
       })();
+      // 一度限り: 既存タスクの matrixQ を親に合わせて整合。親に分類がある場合、
+      // 子孫の matrixQ を一括で親と一致させる (祖先優先 = root の値が末端まで伝播)。
+      (function alignDescendantMatrixQ(){
+        if (data._matrixQDescendantAlignV1) return;
+        var tasks = data.projectTasks || [];
+        var byId = {};
+        tasks.forEach(function(t){ if (t && !t._deleted) byId[t.id] = t; });
+        var changed = false;
+        function effective(t) {
+          var cur = t, guard = 0;
+          while (cur && guard++ < 20) {
+            if (cur.matrixQ === 1 || cur.matrixQ === 2 || cur.matrixQ === 3 || cur.matrixQ === 4) return cur.matrixQ;
+            if (cur.parentTaskId == null) return null;
+            cur = byId[cur.parentTaskId];
+          }
+          return null;
+        }
+        var now = Date.now();
+        tasks.forEach(function(t){
+          if (!t || t._deleted) return;
+          if (t.parentTaskId == null) return; // root はスキップ
+          var eq = effective(t);
+          if (eq != null && t.matrixQ !== eq) {
+            t.matrixQ = eq;
+            t._modTs = (t._modTs && t._modTs >= now) ? t._modTs + 1 : now;
+            changed = true;
+            try {
+              var dirtyKey = 'bo-manual-dirty';
+              var raw = localStorage.getItem(dirtyKey);
+              var dm = raw ? JSON.parse(raw) : {};
+              if (!dm || Array.isArray(dm)) dm = {};
+              dm['projectTasks:' + t.id] = now;
+              localStorage.setItem(dirtyKey, JSON.stringify(dm));
+            } catch(e) {}
+          }
+        });
+        data._matrixQDescendantAlignV1 = true;
+        if (changed) {
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+        }
+      })();
       // 一度限りの色リセット: 「高単価アフィ」プロジェクトの tagId を null に戻す
       // (緊急度セレクタ UI 廃止後、ユーザーから「マップでの色を元に戻して」依頼)。
       (function resetKotankaAfiColor(){
@@ -1495,6 +1536,24 @@
       t.matrixQ = newQ;
       t._modTs = bumpModTs(t._modTs);
       markDirty('projectTasks', t.id);
+      // 子孫タスクにも同じ分類を伝播 (BFS)。子タスクが独自の matrixQ を持って
+      // いた場合も上書き — 親と揃えるのがユーザー意図のため。
+      var queue = [taskId];
+      var seen = {}; seen[taskId] = true;
+      while (queue.length) {
+        var pid = queue.shift();
+        (data.projectTasks || []).forEach(function(c){
+          if (c && !c._deleted && c.parentTaskId === pid && !seen[c.id]) {
+            seen[c.id] = true;
+            if (c.matrixQ !== newQ) {
+              c.matrixQ = newQ;
+              c._modTs = bumpModTs(c._modTs);
+              markDirty('projectTasks', c.id);
+            }
+            queue.push(c.id);
+          }
+        });
+      }
       saveData();
       render();
     }
