@@ -1452,6 +1452,24 @@
       }
       return chain.join(' › ');
     }
+    // タスクの上層 (プロジェクト階層 + 親タスク階層) を返す。
+    // 例: "BO › 営業 › 商談" + ParentTask1 › ParentTask2 の様に連結する。
+    function _getTaskAncestorPathLabel(task) {
+      if (!task) return '';
+      var parts = [];
+      var proj = _getProjectPathLabel(task.projectId);
+      if (proj) parts.push(proj);
+      // 親タスク列を root→immediate parent の順で収集
+      var taskChain = [];
+      var cur = task.parentTaskId ? (data.projectTasks || []).find(function(x){ return x && !x._deleted && x.id === task.parentTaskId; }) : null;
+      var guard = 0;
+      while (cur && guard++ < 20) {
+        taskChain.unshift(cur.title || '');
+        cur = cur.parentTaskId ? (data.projectTasks || []).find(function(x){ return x && !x._deleted && x.id === cur.parentTaskId; }) : null;
+      }
+      if (taskChain.length) parts.push(taskChain.join(' › '));
+      return parts.join(' › ');
+    }
     function setTaskMatrixQ(taskId, q) {
       var t = (data.projectTasks || []).find(function(x){ return x.id === taskId && !x._deleted; });
       if (!t) return;
@@ -4981,7 +4999,7 @@
           byQ[q].sort(function(a,b){ return (a.title||'').localeCompare(b.title||''); });
           byQ[q].forEach(function(t){
             var pc = getProjectColor(t.projectId);
-            var projPath = _getProjectPathLabel(t.projectId);
+            var projPath = _getTaskAncestorPathLabel(t);
             html += '<div class="matrix-task" draggable="true" ondragstart="matrixTaskDragStart(event,' + t.id + ')" ondragend="matrixTaskDragEnd(event)" onclick="navigate(\'task-detail\',{id:' + t.id + '})" style="background:#fff;border-left:4px solid ' + meta.bg + ';border-radius:6px;padding:6px 10px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04)">';
             if (projPath) html += '<div style="font-size:9px;color:var(--fg-muted2);display:flex;align-items:center;gap:4px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:' + pc.bg + ';flex-shrink:0"></span>' + escapeHtml(projPath) + '</div>';
             html += '<div style="font-size:13px;font-weight:500;color:var(--fg)">' + escapeHtml(t.title) + '</div>';
@@ -5003,7 +5021,7 @@
         html += '<div style="display:flex;flex-direction:column;gap:6px">';
         byQ[0].forEach(function(t){
           var pc = getProjectColor(t.projectId);
-          var projPath = _getProjectPathLabel(t.projectId);
+          var projPath = _getTaskAncestorPathLabel(t);
           html += '<div class="matrix-task" draggable="true" ondragstart="matrixTaskDragStart(event,' + t.id + ')" ondragend="matrixTaskDragEnd(event)" onclick="navigate(\'task-detail\',{id:' + t.id + '})" style="background:#fff;border:1px solid var(--border);border-left:4px solid ' + pc.bg + ';border-radius:6px;padding:6px 10px;cursor:pointer">';
           if (projPath) html += '<div style="font-size:9px;color:var(--fg-muted2);margin-bottom:1px">' + escapeHtml(projPath) + '</div>';
           html += '<div style="font-size:13px">' + escapeHtml(t.title) + '</div>';
