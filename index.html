@@ -1600,6 +1600,18 @@
       document.querySelectorAll('.add-popup').forEach(function(p){ p.remove(); });
       var pop = document.createElement('div');
       pop.className = 'add-popup';
+      // タスクに変換 (ルートタブの場合は表示しない: タスクは projectId 必須)
+      var proj = getProject(projectId);
+      if (proj && proj.parentId != null) {
+        var toTask = document.createElement('button');
+        toTask.innerHTML = '✓ タスクに変換';
+        toTask.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          pop.remove();
+          confirmConvertProjectToTask(projectId);
+        });
+        pop.appendChild(toTask);
+      }
       var btn = document.createElement('button');
       btn.style.color = 'var(--destructive)';
       btn.innerHTML = '🗑 削除';
@@ -6902,6 +6914,62 @@
       saveData();
       render();
       toast('緊急度を変更しました');
+    }
+
+    // プロジェクトをタスクに変換する。元プロジェクトはゴミ箱に移動し、その親
+    // プロジェクト直下に同名タスクを新規作成。元プロジェクトのサブプロジェクト
+    // と内部タスクは「親プロジェクト直下」に昇格して残る (子タブはキープ)。
+    // ルートタブ (parentId == null) は変換不可。
+    function confirmConvertProjectToTask(projectId) {
+      var project = getProject(projectId);
+      if (!project) return;
+      if (project.parentId == null) { toast('ルートタブはタスクに変換できません'); return; }
+      var parentProj = getProject(project.parentId);
+      if (!parentProj || parentProj._deleted) { toast('親タブが見つかりません'); return; }
+      var liveChildProjects = (data.projects || []).filter(function(p){ return p && !p._deleted && p.parentId === projectId; });
+      var liveChildTasks = (data.projectTasks || []).filter(function(t){ return t && !t._deleted && t.projectId === projectId; });
+      var summary = '「' + escapeHtml(project.name || '') + '」を「' + escapeHtml(parentProj.name || '') + '」直下のタスクに変換します。';
+      var note = '<ul style="margin:8px 0 0 16px;padding:0;font-size:12px;color:var(--fg-muted)">'
+        + (liveChildProjects.length ? '<li>サブタブ ' + liveChildProjects.length + ' 件は「' + escapeHtml(parentProj.name) + '」直下に昇格</li>' : '')
+        + (liveChildTasks.length ? '<li>タスク ' + liveChildTasks.length + ' 件のうち、トップレベルは新タスクの子に、それ以外は親タスクを維持して projectId を「' + escapeHtml(parentProj.name) + '」に変更</li>' : '')
+        + '</ul>';
+      showModal('タスクに変換', '<p class="confirm-text">' + summary + '</p>' + note, [
+        { label: 'キャンセル', onClick: function(o){ o.remove(); } },
+        { label: '変換', class: 'btn btn-primary', onClick: function(o){
+          var now = Date.now();
+          if (!data.nextProjectTaskId) data.nextProjectTaskId = 1;
+          var newTask = { id: data.nextProjectTaskId++, projectId: project.parentId, title: project.name || '', done: false, parentTaskId: null, _modTs: bumpModTs(0) };
+          (data.projectTasks = data.projectTasks || []).push(newTask);
+          markDirty('projectTasks', newTask.id);
+          // サブタブを親プロジェクト直下へ昇格
+          liveChildProjects.forEach(function(p){
+            p.parentId = project.parentId;
+            p._modTs = bumpModTs(p._modTs);
+            markDirty('projects', p.id);
+          });
+          // 内部タスク: トップレベル(parentTaskId==null) は新タスクの子に。それ以外は階層維持。
+          // projectId は全て親プロジェクトに付け替え。
+          liveChildTasks.forEach(function(t){
+            if (t.parentTaskId == null) t.parentTaskId = newTask.id;
+            t.projectId = project.parentId;
+            t._modTs = bumpModTs(t._modTs);
+            markDirty('projectTasks', t.id);
+          });
+          // 元プロジェクトを tombstone
+          project._deleted = true;
+          project._modTs = bumpModTs(project._modTs);
+          markDirty('projects', project.id);
+          saveData();
+          toast('タスクに変換しました');
+          o.remove();
+          // 元プロジェクト詳細を開いていたら親プロジェクトへ
+          if (currentPage === 'project-detail' && pageParams.id === project.id) {
+            navigate('project-detail', { id: project.parentId });
+          } else {
+            render();
+          }
+        }}
+      ]);
     }
 
     function confirmDeleteProject(id) {
