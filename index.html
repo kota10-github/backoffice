@@ -1262,7 +1262,14 @@
     } catch {
       data = JSON.parse(JSON.stringify(DEFAULT_DATA));
     }
-    function saveData() { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+    function saveData() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      // クラウド sync を自動発火 (debounce 250ms)。pushSync が存在する前のブート時
+      // にも安全に呼べるよう try/typeof でガード。これがないと、saveData 後に
+      // pushSyncNow を呼ばない操作 (matrix 並び替え・タスク変換・ゴミ箱復元など)
+      // が他デバイスに伝わらない。
+      try { if (typeof pushSync === 'function') pushSync(); } catch(e) {}
+    }
 
     // TOAST
     function toast(msg) {
