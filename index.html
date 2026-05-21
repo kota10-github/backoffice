@@ -639,10 +639,10 @@
 .todo-checkbox:not(.expanded):active{transform:scale(.95)}
 /* 展開ピルは縦並びにせず、横並びを保ったままアイコンを大きく + 文字を白で
    ハッキリ。状態 (checked/in-progress) でも背景はダークで統一。 */
-.todo-checkbox.expanded{width:172px!important;height:40px!important;flex-shrink:0!important;border-radius:999px;padding:0 16px;gap:0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1e293b,#334155)!important;box-shadow:0 6px 16px rgba(0,0,0,.25);animation:expandPill .2s ease-out;color:#fff;position:relative;z-index:50}
+.todo-checkbox.expanded{width:132px!important;height:34px!important;flex-shrink:0!important;border-radius:999px;padding:0 10px;gap:0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1e293b,#334155)!important;box-shadow:0 4px 12px rgba(0,0,0,.22);animation:expandPill .2s ease-out;color:#fff;position:relative;z-index:50}
 @keyframes expandPill{from{transform:scaleX(.5);opacity:.8}to{transform:scaleX(1);opacity:1}}
-.todo-checkbox.expanded .action-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:transform .12s;flex-shrink:0;touch-action:manipulation;background:transparent}
-.todo-checkbox.expanded .action-icon svg{width:18px!important;height:18px!important;stroke-width:2.5}
+.todo-checkbox.expanded .action-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:transform .12s;flex-shrink:0;touch-action:manipulation;background:transparent}
+.todo-checkbox.expanded .action-icon svg{width:15px!important;height:15px!important;stroke-width:2.4}
 .todo-checkbox.expanded .action-icon:active{opacity:.6}
 /* 進行中: 一目で分かるオレンジで表示。完了より弱く、未着手より強い視覚優先度。 */
 .todo-checkbox.in-progress:not(.expanded){background:#fb923c!important;border-color:#fb923c!important;color:#fff!important}
@@ -674,7 +674,7 @@
 .gantt-row-left{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--border);border-bottom:1px solid var(--border-light);padding:8px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:42px}
 .gantt-row-left:hover{background:var(--bg-muted)}
 .gantt-row-left .todo-checkbox{width:22px!important;height:22px!important;flex-shrink:0}
-.gantt-row-left .todo-checkbox.expanded{width:172px!important;height:40px!important;flex-shrink:0!important}
+.gantt-row-left .todo-checkbox.expanded{width:132px!important;height:34px!important;flex-shrink:0!important}
 .gantt-row-left .gantt-row-title{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;white-space:nowrap;color:var(--fg);scrollbar-width:none}
 .gantt-row-left .gantt-row-title::-webkit-scrollbar{display:none}
 .gantt-row-left .gantt-row-meta{font-size:10px;color:var(--fg-muted2);flex-shrink:0}
