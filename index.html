@@ -1780,6 +1780,73 @@
     }
     window.showProjectContextMenu = showProjectContextMenu;
 
+    // タスク用コンテキストメニュー (ガントチャートなどで右クリック / 長押し時)。
+    // マップ側プロジェクトの showProjectContextMenu と同じスタイル。
+    function showTaskContextMenu(event, taskId) {
+      event.preventDefault();
+      event.stopPropagation();
+      document.querySelectorAll('.add-popup').forEach(function(p){ p.remove(); });
+      var task = (data.projectTasks || []).find(function(t){ return t && !t._deleted && t.id === taskId; });
+      if (!task) return;
+      var pop = document.createElement('div');
+      pop.className = 'add-popup';
+
+      // 完了 / 未完了 切替
+      var doneBtn = document.createElement('button');
+      doneBtn.innerHTML = task.done ? '↩ 未完了に戻す' : '✓ 完了にする';
+      doneBtn.addEventListener('click', function(ev){
+        ev.stopPropagation(); pop.remove(); toggleProjectTask(taskId);
+      });
+      pop.appendChild(doneBtn);
+
+      // 進行中 切替
+      var progBtn = document.createElement('button');
+      progBtn.innerHTML = task.inProgress ? '⏸ 進行中を解除' : '⏸ 進行中にする';
+      progBtn.addEventListener('click', function(ev){
+        ev.stopPropagation(); pop.remove(); toggleProjectTaskInProgress(taskId);
+      });
+      pop.appendChild(progBtn);
+
+      // 詳細を開く
+      var openBtn = document.createElement('button');
+      openBtn.innerHTML = '📝 詳細を開く';
+      openBtn.addEventListener('click', function(ev){
+        ev.stopPropagation(); pop.remove(); navigate('task-detail', { id: taskId });
+      });
+      pop.appendChild(openBtn);
+
+      // 削除
+      var delBtn = document.createElement('button');
+      delBtn.style.color = 'var(--destructive)';
+      delBtn.innerHTML = '🗑 削除';
+      delBtn.addEventListener('click', function(ev){
+        ev.stopPropagation(); pop.remove();
+        if (confirm('このタスクを削除しますか？')) deleteProjectTask(taskId);
+      });
+      pop.appendChild(delBtn);
+
+      document.body.appendChild(pop);
+      var pw = pop.offsetWidth, ph = pop.offsetHeight;
+      var left = event.pageX;
+      var top = event.pageY;
+      if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+      if (top + ph > window.innerHeight + window.scrollY - 8) top = event.pageY - ph;
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      setTimeout(function(){
+        var onDoc = function(ev){
+          if (!pop.contains(ev.target)) {
+            pop.remove();
+            document.removeEventListener('click', onDoc);
+            document.removeEventListener('contextmenu', onDoc);
+          }
+        };
+        document.addEventListener('click', onDoc);
+        document.addEventListener('contextmenu', onDoc);
+      }, 0);
+    }
+    window.showTaskContextMenu = showTaskContextMenu;
+
     // モバイル長押しでコンテキストメニュー。document レベルの delegation なので
     // 再レンダーされても再 bind 不要。500ms 押し続けたら発火、移動 / 早 release で
     // キャンセル。発火時はバブリング後の click をブロック (誤動作で詳細ページに飛ぶ
@@ -1796,17 +1863,36 @@
         var m = dn.match(/^(?:proj|sp)-(\d+)$/);
         return m ? Number(m[1]) : null;
       }
+      function taskIdFromTouch(target){
+        if (!target || !target.closest) return null;
+        // ガントチャートの行など、data-task-id を持つ要素
+        var node = target.closest('[data-task-id]');
+        if (!node) return null;
+        // チェックボックス自体 (アクション展開用) はメニュー対象外にする
+        if (target.closest && target.closest('.todo-checkbox')) return null;
+        var id = Number(node.dataset.taskId);
+        return isNaN(id) ? null : id;
+      }
       document.addEventListener('touchstart', function(e){
         fired = false;
         if (e.touches.length !== 1) return;
-        var pid = projectIdFromTouch(e.target);
-        if (pid == null) return;
         startX = e.touches[0].pageX; startY = e.touches[0].pageY;
         clearTimeout(pressTimer);
-        pressTimer = setTimeout(function(){
-          fired = true;
-          showProjectContextMenu({ preventDefault: function(){}, stopPropagation: function(){}, pageX: startX, pageY: startY }, pid);
-        }, LONG_PRESS_MS);
+        var pid = projectIdFromTouch(e.target);
+        if (pid != null) {
+          pressTimer = setTimeout(function(){
+            fired = true;
+            showProjectContextMenu({ preventDefault: function(){}, stopPropagation: function(){}, pageX: startX, pageY: startY }, pid);
+          }, LONG_PRESS_MS);
+          return;
+        }
+        var tid = taskIdFromTouch(e.target);
+        if (tid != null) {
+          pressTimer = setTimeout(function(){
+            fired = true;
+            showTaskContextMenu({ preventDefault: function(){}, stopPropagation: function(){}, pageX: startX, pageY: startY }, tid);
+          }, LONG_PRESS_MS);
+        }
       }, { passive: true });
       document.addEventListener('touchmove', function(e){
         if (!pressTimer) return;
@@ -5422,7 +5508,7 @@
         var urgencyColor = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : pc.bg);
         var depth = t._ganttDepth || 0;
         var indentPx = depth * 14;
-        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + ';padding-left:' + (10 + indentPx) + 'px">';
+        html += '<div class="gantt-row-left" data-task-id="' + t.id + '" onclick="navigate(\'task-detail\',{id:' + t.id + '})" oncontextmenu="showTaskContextMenu(event,' + t.id + ')" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + ';padding-left:' + (10 + indentPx) + 'px">';
         // 完了/進行中/削除のアクションをタップで展開 (マップ・タスクタブと同じ動作)
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
         html += '<span class="gantt-row-title" style="' + (depth > 0 ? 'color:var(--fg-muted);font-size:12px' : '') + '">' + (depth > 0 ? '└ ' : '') + escapeHtml(t.title || '無題') + '</span>';
