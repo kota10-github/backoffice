@@ -670,7 +670,9 @@
 .gantt-row-left .gantt-row-title{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;white-space:nowrap;color:var(--fg);scrollbar-width:none}
 .gantt-row-left .gantt-row-title::-webkit-scrollbar{display:none}
 .gantt-row-left .gantt-row-meta{font-size:10px;color:var(--fg-muted2);flex-shrink:0}
+.gantt-row-left .gantt-row-menu{touch-action:manipulation;min-width:28px;min-height:28px}
 .gantt-row-left .gantt-row-menu:hover{background:var(--bg-muted);color:var(--fg)}
+.gantt-row-left .todo-checkbox{touch-action:manipulation}
 .gantt-row-left.gantt-group-header{min-height:36px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .gantt-row-left.gantt-group-header:hover{filter:brightness(0.96)}
 .gantt-row-right{position:relative;border-bottom:1px solid var(--border-light);min-height:42px;display:flex}
@@ -1869,8 +1871,10 @@
         // ガントチャートの行など、data-task-id を持つ要素
         var node = target.closest('[data-task-id]');
         if (!node) return null;
-        // チェックボックス自体 (アクション展開用) はメニュー対象外にする
-        if (target.closest && target.closest('.todo-checkbox')) return null;
+        // チェックボックス・⋮ メニュー・action-icon は長押し対象外 (タップ専用要素)
+        if (target.closest('.todo-checkbox')) return null;
+        if (target.closest('.gantt-row-menu')) return null;
+        if (target.closest('.action-icon')) return null;
         var id = Number(node.dataset.taskId);
         return isNaN(id) ? null : id;
       }
