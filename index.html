@@ -1871,8 +1871,8 @@
     }
     window.showProjectContextMenu = showProjectContextMenu;
 
-    // タスク用コンテキストメニュー (ガントチャートなどで右クリック / 長押し時)。
-    // マップ側プロジェクトの showProjectContextMenu と同じスタイル。
+    // タスク用コンテキストメニュー (ガント・マップで右クリック / 長押し時)。
+    // 「プロジェクトに変換」と「削除」のみ提供。状態切替などは pill / 詳細から。
     function showTaskContextMenu(event, taskId) {
       event.preventDefault();
       event.stopPropagation();
@@ -1881,30 +1881,6 @@
       if (!task) return;
       var pop = document.createElement('div');
       pop.className = 'add-popup';
-
-      // 完了 / 未完了 切替
-      var doneBtn = document.createElement('button');
-      doneBtn.innerHTML = task.done ? '↩ 未完了に戻す' : '✓ 完了にする';
-      doneBtn.addEventListener('click', function(ev){
-        ev.stopPropagation(); pop.remove(); toggleProjectTask(taskId);
-      });
-      pop.appendChild(doneBtn);
-
-      // 進行中 切替
-      var progBtn = document.createElement('button');
-      progBtn.innerHTML = task.inProgress ? '⏸ 進行中を解除' : '⏸ 進行中にする';
-      progBtn.addEventListener('click', function(ev){
-        ev.stopPropagation(); pop.remove(); toggleProjectTaskInProgress(taskId);
-      });
-      pop.appendChild(progBtn);
-
-      // 詳細を開く
-      var openBtn = document.createElement('button');
-      openBtn.innerHTML = '📝 詳細を開く';
-      openBtn.addEventListener('click', function(ev){
-        ev.stopPropagation(); pop.remove(); navigate('task-detail', { id: taskId });
-      });
-      pop.appendChild(openBtn);
 
       // プロジェクトに変換
       var toProjBtn = document.createElement('button');
