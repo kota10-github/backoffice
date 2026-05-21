@@ -5364,11 +5364,13 @@
       }
 
       // --- BOチーム (大目的) ヘッダ ---
-      var teamKey = 'team';
-      var teamOpen = !collapsed.has(teamKey);
+      // ルートなのでチェブロンは廃止 (折りたたむと全プロジェクトが消えて不可逆な
+      // 不便さがあるため)。万一過去の状態で collapsed に 'team' が残っていたら
+      // 黙って取り除く。
+      if (collapsed.has('team')) { collapsed.delete('team'); _saveCollapsed(collapsed); }
       var teamPurpose = (data.teamMeta && data.teamMeta.purpose) ? data.teamMeta.purpose : '';
       html += '<div class="tree-node team-node" style="padding:10px 8px;margin-bottom:4px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:6px">';
-      html += chevron(teamOpen, teamKey);
+      html += '<span style="display:inline-block;width:18px;flex-shrink:0"></span>';
       html += '<div style="flex:1;min-width:0;cursor:pointer" onclick="navigate(\'team-detail\')">';
       html += '<div style="font-size:14px;font-weight:700;color:#1e293b">BOチーム <span style="font-size:11px;color:var(--fg-muted);font-weight:500">大目的</span></div>';
       if (teamPurpose) {
@@ -5377,8 +5379,6 @@
         html += '<div style="font-size:11px;color:var(--fg-muted2);margin-top:2px;font-style:italic">タップして大目的を入力</div>';
       }
       html += '</div></div>';
-
-      if (!teamOpen) { el.innerHTML = html; return; }
 
       // --- プロジェクト階層 (root projects → sub-projects recursively) ---
       function renderProjectNode(project, depth) {
