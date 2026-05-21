@@ -5366,9 +5366,9 @@
         var projPath = _getTaskAncestorPathLabel(t);
 
         html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '">';
-        // 状態チェックボックスはマップ・タスクタブと同じ todo-checkbox を使用。
-        // タップで完了/進行中/削除のアクションピルが展開される。
-        html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
+        // 状態チェックボックスは表示専用 (ガントチャート上では編集不可。タスク
+        // 詳細やマップ・タスクタブで状態変更してね)。
+        html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="pointer-events:none">' + _taskStateSvg(t, 10) + '</div>';
         html += '<span class="gantt-row-title">' + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
