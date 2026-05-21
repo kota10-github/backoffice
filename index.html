@@ -5364,8 +5364,11 @@
         var qEff = getEffectiveMatrixQ(t);
         var qCls = qEff === 1 ? 'q1' : (qEff === 2 ? 'q2' : '');
         var projPath = _getTaskAncestorPathLabel(t);
+        // プロジェクトの緊急度タグ色 (getProjectColor) を行頭に表示。タグ未設定は
+        // デフォルトのグレー (#94a3b8)。
+        var pc = getProjectColor(t.projectId);
 
-        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '">';
+        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + pc.bg + '">';
         // 状態チェックボックスは表示専用 (ガントチャート上では編集不可。タスク
         // 詳細やマップ・タスクタブで状態変更してね)。
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="pointer-events:none">' + _taskStateSvg(t, 10) + '</div>';
@@ -5383,14 +5386,13 @@
           var cls2 = 'gantt-cell' + (isT ? ' today' : '') + (we ? ' weekend' : '');
           html += '<div class="' + cls2 + '" style="width:' + dayW + 'px;height:42px"></div>';
         }
+        // バーの色: matrixQ (Q1=赤 / Q2=青) があれば優先。なければプロジェクトの
+        // 緊急度タグ色 (pc.bg)。タグ未設定はデフォルトのオレンジ (#fb923c)。
+        var hasTag = pc && pc.bg && pc.bg !== '#94a3b8';
+        var barBg = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : (hasTag ? pc.bg : '#fb923c'));
         // バー
         if (due) {
-          // バー範囲: start (= 着手日があれば — でも startDate が無いので) は
-          // ・進行中なら「今日 (もしくは過去のいずれか早い方) → due」
-          // ・未着手なら「今日 → due」
-          // 期限切れ過去日のタスクも見える様、左端は過去側の早い方を採用。
           var barStart = new Date(today);
-          // due が過去なら due を起点に
           if (_ganttDaysBetween(barStart, due) < 0) barStart = new Date(due);
           var startCol = _ganttDaysBetween(start, barStart);
           var endCol = _ganttDaysBetween(start, due);
@@ -5399,18 +5401,28 @@
           if (endCol >= startCol) {
             var leftPx = startCol * dayW + 2;
             var widthPx = (endCol - startCol + 1) * dayW - 4;
-            var barCls = 'gantt-bar ' + (t.inProgress ? 'inprogress' : 'notstarted') + (qCls ? ' ' + qCls : '');
-            html += '<div class="' + barCls + '" style="left:' + leftPx + 'px;width:' + widthPx + 'px">' + (t.inProgress ? '進行中' : '未着手') + '</div>';
+            var barStyle = 'left:' + leftPx + 'px;width:' + widthPx + 'px;';
+            if (t.inProgress) {
+              barStyle += 'background:' + barBg + ';color:#fff';
+            } else {
+              barStyle += 'background:transparent;border:1.5px dashed ' + barBg + ';color:' + barBg;
+            }
+            html += '<div class="gantt-bar" style="' + barStyle + '">' + (t.inProgress ? '進行中' : '未着手') + '</div>';
           }
         } else if (t.inProgress) {
-          // 期限未設定 + 進行中: 縞模様で右側にフェードアウト
+          // 期限未設定 + 進行中: 縞模様 + 右側フェードアウト
           var startColU = _ganttDaysBetween(start, today);
           if (startColU < 0) startColU = 0;
           var endColU = Math.min(totalDays - 1, startColU + _GANTT_UNDATED_DAYS);
           var leftPxU = startColU * dayW + 2;
           var widthPxU = (endColU - startColU + 1) * dayW - 4;
-          var barClsU = 'gantt-bar inprogress undated' + (qCls ? ' ' + qCls : '');
-          html += '<div class="' + barClsU + '" style="left:' + leftPxU + 'px;width:' + widthPxU + 'px">進行中・期限未設定</div>';
+          // 縞: barBg と少し薄い色を交互に。
+          var stripeLight = barBg + 'cc';
+          var barStyleU = 'left:' + leftPxU + 'px;width:' + widthPxU + 'px;'
+            + 'background:repeating-linear-gradient(45deg,' + barBg + ',' + barBg + ' 8px,' + stripeLight + ' 8px,' + stripeLight + ' 16px);'
+            + 'color:#fff;mask-image:linear-gradient(to right,rgba(0,0,0,1) 0%,rgba(0,0,0,1) 60%,rgba(0,0,0,0) 100%);'
+            + '-webkit-mask-image:linear-gradient(to right,rgba(0,0,0,1) 0%,rgba(0,0,0,1) 60%,rgba(0,0,0,0) 100%)';
+          html += '<div class="gantt-bar" style="' + barStyleU + '">進行中・期限未設定</div>';
         }
         // 未着手 + 期限未設定 はバー無し (空白)
         html += '</div>';
