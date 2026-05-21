@@ -7009,8 +7009,13 @@
       el.setAttribute('data-orig-h', el.style.height || '');
       el.setAttribute('data-task-id', String(taskId));
       el.classList.add('expanded');
+      // 完了状態のタスクは ✓ アイコンを ↩ (戻す) に変更し、何が起きるか直感的に
+      var checkIconSvg = isDone
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+      var checkIconTitle = isDone ? '未完了に戻す' : '完了';
       el.innerHTML =
-        '<span class="action-icon check-icon" title="完了" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+        '<span class="action-icon check-icon" title="' + checkIconTitle + '" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')">' + checkIconSvg + '</span>' +
         '<span class="action-icon progress-icon" title="進行中" onclick="event.stopPropagation();toggleProjectTaskInProgress(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>' +
         '<span class="action-icon delete-icon" title="削除" onclick="event.stopPropagation();deleteProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>';
     }
