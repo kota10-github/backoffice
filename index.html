@@ -671,7 +671,7 @@
 .gantt-header-day{flex-shrink:0;text-align:center;border-right:1px solid var(--border-light);padding:4px 0;line-height:1.2;display:flex;flex-direction:column;justify-content:center}
 .gantt-header-day.today{background:#dbeafe;color:#1d4ed8;font-weight:700}
 .gantt-header-day.weekend{background:#f1f5f9}
-.gantt-row-left{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--border);border-bottom:1px solid var(--border-light);padding:8px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:42px}
+.gantt-row-left{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--border);border-bottom:1px solid var(--border-light);padding:12px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:56px}
 .gantt-row-left:hover{background:var(--bg-muted)}
 .gantt-row-left .todo-checkbox{width:22px!important;height:22px!important;flex-shrink:0}
 .gantt-row-left .todo-checkbox.expanded{width:132px!important;height:34px!important;flex-shrink:0!important}
@@ -683,11 +683,11 @@
 .gantt-row-left .todo-checkbox{touch-action:manipulation}
 .gantt-row-left.gantt-group-header{min-height:36px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .gantt-row-left.gantt-group-header:hover{filter:brightness(0.96)}
-.gantt-row-right{position:relative;border-bottom:1px solid var(--border-light);min-height:42px;display:flex}
+.gantt-row-right{position:relative;border-bottom:1px solid var(--border-light);min-height:56px;display:flex}
 .gantt-row-right .gantt-cell{flex-shrink:0;border-right:1px solid var(--border-light)}
 .gantt-row-right .gantt-cell.today{background:rgba(37,99,235,.06)}
 .gantt-row-right .gantt-cell.weekend{background:rgba(241,245,249,.6)}
-.gantt-bar{position:absolute;top:8px;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.gantt-bar{position:absolute;top:14px;height:28px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .gantt-bar.notstarted{background:transparent;border:1.5px dashed #94a3b8;color:#64748b}
 .gantt-bar.inprogress{background:#fb923c;color:#fff}
 /* 進行中で期限未設定: 右側にフェードアウトする縞模様で「いい感じ」に表現 */
@@ -5753,7 +5753,7 @@
           var dow2 = dj.getDay();
           var we = (dow2 === 0 || dow2 === 6);
           var cls2 = 'gantt-cell' + (isT ? ' today' : '') + (we ? ' weekend' : '');
-          html += '<div class="' + cls2 + '" style="width:' + dayW + 'px;height:42px"></div>';
+          html += '<div class="' + cls2 + '" style="width:' + dayW + 'px;height:56px"></div>';
         }
         renderGanttBar(t, due, qEff, urgencyColor, pc);
         html += '</div>';
@@ -5795,32 +5795,10 @@
           html += '<div class="gantt-bar" style="' + barStyleU + '">進行中・期限未設定</div>';
         }
       }
-      // ループ: 各グループに header 行 + tasks
+      // グループヘッダは廃止 — 全タスクを平坦に表示 (各行で親パスを小さく表示済み)
       groupOrder.forEach(function(gkey){
         var g = groupsMap[gkey];
-        var collapseKey = 'gantt-proj:' + gkey;
-        var isOpen = !collapsed.has(collapseKey);
-        var projName = g.proj ? g.proj.name : 'プロジェクト未設定';
-        var c = g.proj ? getProjectColor(g.proj.id) : { bg:'#94a3b8', light:'#f1f5f9', text:'#475569' };
-        // ヘッダ行: 左カラム = 開閉トグル + プロジェクト名 + 件数, 右カラム = 空セル背景
-        html += '<div class="gantt-row-left gantt-group-header" style="background:' + c.light + ';border-left:4px solid ' + c.bg + ';cursor:pointer;font-weight:600" onclick="toggleTaskTreeNode(\'' + collapseKey + '\')">';
-        html += '<span style="display:inline-block;width:16px;text-align:center;color:' + c.bg + ';font-size:11px;flex-shrink:0">' + (isOpen ? '▼' : '▶') + '</span>';
-        html += '<span class="gantt-row-title" style="color:' + c.text + '">' + escapeHtml(projName) + '</span>';
-        html += '<span class="gantt-row-meta" style="color:' + c.bg + '">' + g.tasks.length + '件</span>';
-        html += '</div>';
-        html += '<div class="gantt-row-right" style="width:' + gridW + 'px;background:' + c.light + '">';
-        for (var j2 = 0; j2 < totalDays; j2++) {
-          var dj2 = new Date(start); dj2.setDate(dj2.getDate() + j2);
-          var isT2 = _ganttFormatYmd(dj2) === _ganttFormatYmd(today);
-          var dow3 = dj2.getDay();
-          var we2 = (dow3 === 0 || dow3 === 6);
-          var cls3 = 'gantt-cell' + (isT2 ? ' today' : '') + (we2 ? ' weekend' : '');
-          html += '<div class="' + cls3 + '" style="width:' + dayW + 'px;height:42px"></div>';
-        }
-        html += '</div>';
-        if (isOpen) {
-          g.tasks.forEach(renderGanttRow);
-        }
+        g.tasks.forEach(renderGanttRow);
       });
 
       // Today vertical line
