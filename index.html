@@ -670,6 +670,7 @@
 .gantt-row-left .gantt-row-title{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;white-space:nowrap;color:var(--fg);scrollbar-width:none}
 .gantt-row-left .gantt-row-title::-webkit-scrollbar{display:none}
 .gantt-row-left .gantt-row-meta{font-size:10px;color:var(--fg-muted2);flex-shrink:0}
+.gantt-row-left .gantt-row-menu:hover{background:var(--bg-muted);color:var(--fg)}
 .gantt-row-left.gantt-group-header{min-height:36px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .gantt-row-left.gantt-group-header:hover{filter:brightness(0.96)}
 .gantt-row-right{position:relative;border-bottom:1px solid var(--border-light);min-height:42px;display:flex}
@@ -1852,7 +1853,7 @@
     // キャンセル。発火時はバブリング後の click をブロック (誤動作で詳細ページに飛ぶ
     // のを防ぐ)。
     (function setupLongPressContextMenu(){
-      var LONG_PRESS_MS = 500;
+      var LONG_PRESS_MS = 350;
       var MOVE_TOLERANCE_PX = 10;
       var pressTimer = null, fired = false, startX = 0, startY = 0;
       function projectIdFromTouch(target){
@@ -5513,6 +5514,8 @@
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
         html += '<span class="gantt-row-title" style="' + (depth > 0 ? 'color:var(--fg-muted);font-size:12px' : '') + '">' + (depth > 0 ? '└ ' : '') + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
+        // ⋮ メニューボタン (タップで context menu を開く。長押しや右クリックの代替)
+        html += '<button class="gantt-row-menu" title="メニュー" onclick="event.stopPropagation();showTaskContextMenu(event,' + t.id + ')" style="flex-shrink:0;background:none;border:none;color:var(--fg-muted);font-size:18px;line-height:1;padding:4px 6px;cursor:pointer;border-radius:4px">⋮</button>';
         html += '</div>';
         html += '<div class="gantt-row-right" style="width:' + gridW + 'px">';
         for (var j = 0; j < totalDays; j++) {
