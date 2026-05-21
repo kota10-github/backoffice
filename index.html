@@ -5591,8 +5591,20 @@
         var k = t.parentTaskId == null ? '__root__' : String(t.parentTaskId);
         (childrenByParent[k] = childrenByParent[k] || []).push(t);
       });
+      // 兄弟は締切が早い順に並べる (期限未設定は末尾)。同じ締切は map 準拠。
+      function _ganttDueKey(t) {
+        var d = _ganttParseYmd(t && t.dueDate);
+        return d ? d.getTime() : Infinity;
+      }
       Object.keys(childrenByParent).forEach(function(k){
-        _matrixSortByMap(childrenByParent[k], mapIdx);
+        childrenByParent[k].sort(function(a,b){
+          var da = _ganttDueKey(a), db = _ganttDueKey(b);
+          if (da !== db) return da - db;
+          // 同着は map 順 (orderIndex) → id ASC
+          var ka = mapIdx.keyFor(a), kb = mapIdx.keyFor(b);
+          if (ka[1] !== kb[1]) return ka[1] - kb[1];
+          return ka[2] - kb[2];
+        });
       });
       // ツリー順 (親→子→孫) で depth を付与した平坦リスト。後でルートタブごとに分割。
       // 循環参照や深すぎる階層に対する safe guard を入れる。
@@ -5628,14 +5640,26 @@
         }
         groupsMap[key].tasks.push(t);
       });
-      // ルートプロジェクトを map 順で並べる
+      // ルートプロジェクトは「グループ内で最早の締切」を持つ方を上に。
+      // 全タスクが期限未設定のグループは末尾、その中では map 順。
+      function _ganttGroupEarliestDue(g) {
+        var min = Infinity;
+        g.tasks.forEach(function(t){
+          var d = _ganttParseYmd(t.dueDate);
+          if (d) min = Math.min(min, d.getTime());
+        });
+        return min;
+      }
       groupOrder.sort(function(a, b){
         var ga = groupsMap[a], gb = groupsMap[b];
         if (!ga.proj && gb.proj) return 1;
         if (ga.proj && !gb.proj) return -1;
-        if (!ga.proj && !gb.proj) return 0;
-        var oa = ga.tasks[0] ? mapIdx.keyFor(ga.tasks[0]) : [1e9, 1e9];
-        var ob = gb.tasks[0] ? mapIdx.keyFor(gb.tasks[0]) : [1e9, 1e9];
+        var da = _ganttGroupEarliestDue(ga), db = _ganttGroupEarliestDue(gb);
+        if (da !== db) return da - db;
+        // 同着は map 順
+        if (!ga.proj || !gb.proj) return 0;
+        var oa = ga.tasks[0] ? mapIdx.keyFor(ga.tasks[0]) : [1e9, 1e9, 1e9];
+        var ob = gb.tasks[0] ? mapIdx.keyFor(gb.tasks[0]) : [1e9, 1e9, 1e9];
         return oa[0] - ob[0];
       });
       var tasksTotal = flatTasks.length;
@@ -5682,14 +5706,44 @@
         var due = _ganttParseYmd(t.dueDate);
         var qEff = getEffectiveMatrixQ(t);
         var projPath = _getTaskAncestorPathLabel(t);
+        // 親タブパス: グループヘッダで root proj は表示済みなので、それ以下の
+        // サブプロジェクト + 親タスクチェーンだけ抽出 (root proj を除いた一覧)
+        var parentLabel = '';
+        (function(){
+          var rootId = _ganttRootProjectId(t);
+          var parts = [];
+          // 親プロジェクト鎖を末尾から root まで (root proj はスキップ)
+          var cur = t.projectId != null ? (data.projects || []).find(function(p){ return p && p.id === t.projectId; }) : null;
+          var pChain = [];
+          var g = 0;
+          while (cur && g++ < 20) {
+            if (cur.id === rootId) break;
+            pChain.unshift(cur.name || '');
+            cur = cur.parentId != null ? (data.projects || []).find(function(p){ return p && p.id === cur.parentId; }) : null;
+          }
+          if (pChain.length) parts.push(pChain.join(' › '));
+          // 親タスクチェーン
+          var pt = t.parentTaskId ? (data.projectTasks || []).find(function(x){ return x && !x._deleted && x.id === t.parentTaskId; }) : null;
+          var tChain = [];
+          g = 0;
+          while (pt && g++ < 20) {
+            tChain.unshift(pt.title || '');
+            pt = pt.parentTaskId ? (data.projectTasks || []).find(function(x){ return x && !x._deleted && x.id === pt.parentTaskId; }) : null;
+          }
+          if (tChain.length) parts.push(tChain.join(' › '));
+          parentLabel = parts.join(' › ');
+        })();
         var pc = getProjectColor(t.projectId);
         var urgencyColor = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : pc.bg);
         var depth = t._ganttDepth || 0;
         var indentPx = depth * 14;
         html += '<div class="gantt-row-left" data-task-id="' + t.id + '" onclick="navigate(\'task-detail\',{id:' + t.id + '})" oncontextmenu="showTaskContextMenu(event,' + t.id + ')" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + ';padding-left:' + (10 + indentPx) + 'px">';
-        // 完了/進行中/削除のアクションをタップで展開 (マップ・タスクタブと同じ動作)
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
-        html += '<span class="gantt-row-title" style="' + (depth > 0 ? 'color:var(--fg-muted);font-size:12px' : '') + '">' + (depth > 0 ? '└ ' : '') + escapeHtml(t.title || '無題') + '</span>';
+        // 親タブ + 親タスク chain と本タスク名を縦に並べる
+        html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden">';
+        if (parentLabel) html += '<div style="font-size:10px;color:var(--fg-muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2">' + escapeHtml(parentLabel) + '</div>';
+        html += '<div class="gantt-row-title" style="font-size:13px;line-height:1.2;' + (t.done ? 'text-decoration:line-through;opacity:.55;' : '') + '">' + escapeHtml(t.title || '無題') + '</div>';
+        html += '</div>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
         html += '<div class="gantt-row-right" style="width:' + gridW + 'px">';
