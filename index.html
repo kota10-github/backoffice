@@ -5538,8 +5538,6 @@
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
         html += '<span class="gantt-row-title" style="' + (depth > 0 ? 'color:var(--fg-muted);font-size:12px' : '') + '">' + (depth > 0 ? '└ ' : '') + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
-        // ⋮ メニューボタン (タップで context menu を開く。長押しや右クリックの代替)
-        html += '<button class="gantt-row-menu" title="メニュー" onclick="event.stopPropagation();showTaskContextMenu(event,' + t.id + ')" style="flex-shrink:0;background:none;border:none;color:var(--fg-muted);font-size:18px;line-height:1;padding:4px 6px;cursor:pointer;border-radius:4px">⋮</button>';
         html += '</div>';
         html += '<div class="gantt-row-right" style="width:' + gridW + 'px">';
         for (var j = 0; j < totalDays; j++) {
