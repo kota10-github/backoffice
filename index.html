@@ -5372,6 +5372,8 @@
         // 状態チェックボックスは表示専用 (ガントチャート上では編集不可。タスク
         // 詳細やマップ・タスクタブで状態変更してね)。
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="pointer-events:none">' + _taskStateSvg(t, 10) + '</div>';
+        // タイトル左の色帯 (緊急度タグ色)。チェックボックスとタイトルの間に挟む。
+        html += '<span style="display:inline-block;width:4px;height:18px;border-radius:2px;background:' + pc.bg + ';flex-shrink:0"></span>';
         html += '<span class="gantt-row-title">' + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
