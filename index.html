@@ -5351,9 +5351,9 @@
 
       var dayW = _GANTT_DAY_PX;
       var gridW = totalDays * dayW;
-      // モバイルでは左カラムを画面幅の 40% (= 4:6 比率) にする。PC は 240px。
+      // モバイルでは左カラムを画面幅の 50% (5:5 比率) にする。PC は 240px。
       var isMobile = (typeof window !== 'undefined') && window.innerWidth <= 768;
-      var leftColW = isMobile ? Math.max(120, Math.floor(window.innerWidth * 0.4)) : 240;
+      var leftColW = isMobile ? Math.max(140, Math.floor(window.innerWidth * 0.5)) : 240;
 
       html += '<div class="gantt-wrap"><div class="gantt-scroll">';
       html += '<div class="gantt-grid" style="grid-template-columns:' + leftColW + 'px ' + gridW + 'px">';
