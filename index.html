@@ -3243,12 +3243,13 @@
           var mc = MATRIX_ENABLED ? getMatrixColor(getEffectiveMatrixQ(t)) : null;
           var taskBorder = t.done ? '#059669' : (mc ? mc.bg : color.bg);
           var taskBg = mc ? mc.light : color.light;
-          html += '<div class="node-manual" data-node="task-' + t.id + '" draggable="true"' +
+          html += '<div class="node-manual" data-node="task-' + t.id + '" data-task-id="' + t.id + '" draggable="true"' +
             ' ondragstart="handleTaskDragStart(event,' + t.id + ')"' +
             ' ondragend="handleTaskDragEnd(event)"' +
             ' ondragover="handleTaskDragOver(event,' + t.id + ')"' +
             ' ondragleave="this.classList.remove(\'drop-target\',\'drop-before\',\'drop-after\')"' +
             ' ondrop="handleTaskDrop(event,' + t.id + ')"' +
+            ' oncontextmenu="showTaskContextMenu(event,' + t.id + ')"' +
             ' style="border-left:3px solid ' + taskBorder + ';background:' + taskBg + ';opacity:' + (t.done ? '.5' : '1') + ';cursor:pointer" onclick="event.stopPropagation();navigate(\'task-detail\',{id:' + t.id + '})">';
           html += '<div class="node-manual-title" style="color:' + color.bg + ';display:flex;align-items:center;gap:6px">';
           html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:24px;height:24px;font-size:10px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
