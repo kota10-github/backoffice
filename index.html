@@ -1223,6 +1223,48 @@
           try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
         }
       })();
+      // 一度限り: 現在の PC 側 (= innerWidth > 768) の data.projects 配列順を
+      // 各プロジェクトの orderIndex として保存し、sync で他デバイスに伝搬する。
+      // モバイル側では実行されない (PC の順序を尊重する)。フラグ
+      // _projectOrderInitV1 はデバイス毎にローカル管理 (sync しない _ プレフィクス
+      // ではないため一応 data に乗るが、本マイグレーションは PC のみ実行)。
+      (function migrateProjectOrderIndexFromPC(){
+        if (data._projectOrderInitV1) return;
+        var isPC = (typeof window !== 'undefined') && window.innerWidth > 768;
+        if (!isPC) return; // モバイルは PC が push したものを後で pull する
+        // parent ごとにグルーピングして配列順に orderIndex を採番
+        var byParent = {};
+        (data.projects || []).forEach(function(p, idx){
+          if (!p || p._deleted) return;
+          var k = p.parentId == null ? '__root__' : String(p.parentId);
+          (byParent[k] = byParent[k] || []).push({ p: p, idx: idx });
+        });
+        var now = Date.now();
+        var changed = false;
+        Object.keys(byParent).forEach(function(k){
+          var group = byParent[k];
+          group.sort(function(a,b){ return a.idx - b.idx; });
+          group.forEach(function(entry, i){
+            if (entry.p.orderIndex !== i) {
+              entry.p.orderIndex = i;
+              entry.p._modTs = (entry.p._modTs && entry.p._modTs >= now) ? entry.p._modTs + 1 : now;
+              changed = true;
+              try {
+                var dirtyKey = 'bo-manual-dirty';
+                var raw = localStorage.getItem(dirtyKey);
+                var dm = raw ? JSON.parse(raw) : {};
+                if (!dm || Array.isArray(dm)) dm = {};
+                dm['projects:' + entry.p.id] = now;
+                localStorage.setItem(dirtyKey, JSON.stringify(dm));
+              } catch(e) {}
+            }
+          });
+        });
+        data._projectOrderInitV1 = true;
+        if (changed) {
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+        }
+      })();
       // 一度限りの色リセット: 「高単価アフィ」プロジェクトの tagId を null に戻す
       // (緊急度セレクタ UI 廃止後、ユーザーから「マップでの色を元に戻して」依頼)。
       (function resetKotankaAfiColor(){
@@ -1997,8 +2039,18 @@
     }
     function getManualsByUser(uid) { return data.assignees.filter(a => a.userId === uid).map(a => ({ ...a, manual: getManual(a.manualId) })).filter(a => a.manual); }
     function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+    // プロジェクト並び順比較: orderIndex がセットされていればそれを使い、
+    // 未設定は末尾扱い (id ASC で確定)。デバイス間で同じ結果になる。
+    function _projectOrderCmp(a, b) {
+      var ao = (typeof a.orderIndex === 'number') ? a.orderIndex : 1e9;
+      var bo = (typeof b.orderIndex === 'number') ? b.orderIndex : 1e9;
+      if (ao !== bo) return ao - bo;
+      return (a.id || 0) - (b.id || 0);
+    }
         function getProjectMap() {
       var liveProjects = data.projects.filter(function(p){ return p && !p._deleted; });
+      // 同階層を orderIndex で安定ソート
+      liveProjects = liveProjects.slice().sort(_projectOrderCmp);
       var liveManuals = MANUALS_UI_ENABLED ? (data.manuals || []).filter(function(m){ return m && !m._deleted; }) : [];
       function buildNode(p) {
         var node = { projectId: p.id, projectName: p.name, manuals: [], users: [], subProjects: [] };
@@ -3302,9 +3354,36 @@
         // cross-device: _modTs bump + markDirty (親変更 / 並び順変更が伝搬する)
         proj._modTs = bumpModTs(proj._modTs);
         markDirty('projects', proj.id);
+        // 影響を受けたグループ (旧親・新親) の同階層に orderIndex を再採番。
+        // 同階層全員に _modTs+markDirty を打って、デバイス間で並び順が同期する。
+        _reassignProjectOrderIndex(targetId, proj.parentId);
         saveData();
         toast(zone === 'inside' ? 'プロジェクトを移動しました' : '並び順を変更しました');
         render();
+      }
+      // 指定 parentId 群の同階層 (orphan のときは parentId == null) に対し、
+      // 現在の data.projects 配列順で orderIndex を 0,1,2... と振り直す。
+      function _reassignProjectOrderIndex() {
+        var parentIds = {};
+        for (var i = 0; i < arguments.length; i++) {
+          var pid = arguments[i];
+          parentIds[pid == null ? '__root__' : String(pid)] = true;
+        }
+        Object.keys(parentIds).forEach(function(k){
+          var pid = (k === '__root__') ? null : Number(k);
+          var siblings = data.projects.filter(function(p){
+            return p && !p._deleted && (p.parentId == null ? null : p.parentId) === pid;
+          });
+          // data.projects 配列内の出現順を保つ
+          siblings.sort(function(a,b){ return data.projects.indexOf(a) - data.projects.indexOf(b); });
+          siblings.forEach(function(p, i){
+            if (p.orderIndex !== i) {
+              p.orderIndex = i;
+              p._modTs = bumpModTs(p._modTs);
+              markDirty('projects', p.id);
+            }
+          });
+        });
       }
       window.handleProjectDragStart = handleProjectDragStart;
       window.handleProjectDragEnd = handleProjectDragEnd;
@@ -3579,7 +3658,7 @@
       if (!project.memo) project.memo = '';
       if (!project.files) project.files = [];
       const manuals = getManualsByProject(project.id);
-      const subProjects = data.projects.filter(p => p && !p._deleted && p.parentId === project.id);
+      const subProjects = data.projects.filter(p => p && !p._deleted && p.parentId === project.id).slice().sort(_projectOrderCmp);
       var pTasks = getTasksByProject(project.id);
       const currentTag = (data.tags||[]).find(t=>t.id===project.tagId);
       const backLabel = project.parentId ? '親プロジェクトへ戻る' : 'マップ';
@@ -5231,8 +5310,8 @@
     var MATRIX_ACTIVE_QS = [2, 1];
 
     // マップ準拠のソートキーをタスク毎に算出。デバイス間で一貫した順序を出す
-    // ため、配列インデックスではなく ID ベース (作成順) で並べる。プロジェクト
-    // は root から DFS で訪問し、各階層内では id ASC で固定。
+    // ため、project は orderIndex (= ユーザーが drag で並べた順) で固定。
+    // 未設定は末尾扱い (id ASC)。
     function _buildMatrixMapOrderIndex(){
       var projOrder = {};
       var counter = { n: 0 };
@@ -5242,9 +5321,9 @@
         var key = p.parentId == null ? '__root__' : String(p.parentId);
         (byParent[key] = byParent[key] || []).push(p);
       });
-      // 同階層は id ASC で並べる (デバイス間で同じ順序になる)
+      // 同階層は orderIndex (デバイス間同期) で並べる
       Object.keys(byParent).forEach(function(k){
-        byParent[k].sort(function(a,b){ return (a.id||0) - (b.id||0); });
+        byParent[k].sort(_projectOrderCmp);
       });
       function visit(p){
         if (projOrder[p.id] != null) return;
@@ -5865,7 +5944,7 @@
         var projOpen = !collapsed.has(projKey);
         var color = getProjectColor(project.id);
         var projTasks = (tasksByProject[project.id] || []).filter(shouldShowTask);
-        var subProjects = projects.filter(function(p){ return p.parentId === project.id && shouldShowProject(p); });
+        var subProjects = projects.filter(function(p){ return p.parentId === project.id && shouldShowProject(p); }).slice().sort(_projectOrderCmp);
         var hasChildren = projTasks.length > 0 || subProjects.length > 0 || !!project.description;
         var indent = depth * 18 + 8;
         html += '<div class="tree-node project-node" style="padding:8px;padding-left:' + indent + 'px;display:flex;align-items:flex-start;gap:6px;margin:6px 0">';
@@ -5909,7 +5988,7 @@
         }
       }
 
-      var rootProjects = projects.filter(function(p){ return !p.parentId; });
+      var rootProjects = projects.filter(function(p){ return !p.parentId; }).slice().sort(_projectOrderCmp);
       if (rootProjects.length === 0 && tasks.length === 0) {
         html += '<div class="empty" style="padding:24px 0"><p>プロジェクトもタスクもありません</p></div>';
       } else {
