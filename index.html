@@ -643,7 +643,7 @@
 .todo-checkbox.expanded .action-icon.check-icon{color:#059669}
 .todo-checkbox.expanded .action-icon.progress-icon{color:#ea7c1c}
 .todo-checkbox.expanded .action-icon.delete-icon{color:#dc2626}
-.todo-checkbox.expanded .action-icon:active{transform:scale(.85)}
+.todo-checkbox.expanded .action-icon:active{opacity:.6}
 /* 進行中: 一目で分かるオレンジで表示。完了より弱く、未着手より強い視覚優先度。 */
 .todo-checkbox.in-progress{background:#fb923c!important;border-color:#fb923c!important;color:#fff!important}
 .todo-checkbox.in-progress:not(.expanded):hover{box-shadow:0 2px 8px rgba(251,146,60,.4)}
@@ -6592,9 +6592,17 @@
     window.addEventListener('focus', pullMergeQuiet);
     window.addEventListener('online', pullMergeQuiet);
     var _lastInteractPull = 0;
-    function _pullOnInteract() {
+    function _pullOnInteract(e) {
       var now = Date.now();
       if (now - _lastInteractPull < 800) return; // throttle: max 1 pull per 800ms
+      // touchstart 経由でこの関数が呼ばれた直後に fetch→merge→render が走ると、
+      // 同じ指タップが完了する前に DOM が再構築されてしまい click が消失する
+      // (タスク詳細のチェックボックスなどがタップに反応しない原因)。
+      // インタラクティブ要素 (チェックボックス・アクションアイコン・ボタン等)
+      // の touch では pull をスキップして click を確実に届ける。
+      if (e && e.type === 'touchstart' && e.target && e.target.closest) {
+        if (e.target.closest('.todo-checkbox, .action-icon, button, a, [data-task-id]')) return;
+      }
       _lastInteractPull = now;
       pullMergeQuiet();
     }
