@@ -157,6 +157,11 @@
     /* マップ検索: 一致ノードを強調 / 非一致を薄く */
     .mindmap-inner.searching .search-dim{opacity:.2}
     .mindmap-inner.searching .search-match{outline:2px solid #fbbf24;outline-offset:2px;box-shadow:0 0 0 4px rgba(251,191,36,.25)}
+    /* マッチ要素を含む祖先タブ: 控えめなオレンジ枠で「中にヒットあり」を示す */
+    .mindmap-inner.searching .search-has-match{opacity:1!important;outline:1.5px dashed #fbbf24;outline-offset:2px}
+    /* 検索中はマッチを内包する collapsed 親を強制展開して、ヒットを見える化 */
+    .mindmap-inner.searching .project-branch.search-force-open > .sub-tree-children,
+    .mindmap-inner.searching .sub-tree-row.search-force-open > .sub-tree-children{display:flex!important}
     .node-root{padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;font-weight:600;font-size:13px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.15);user-select:none}
     .node-user{padding:8px 16px;border-radius:8px;font-weight:500;font-size:13px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.1);cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none}
     .node-user:hover{transform:scale(1.05);box-shadow:0 4px 12px rgba(0,0,0,.15)}
@@ -3072,15 +3077,32 @@
       if (!inner) return;
       var q = _mapSearch;
       inner.classList.toggle('searching', !!q);
-      // 各ノードは自身の data-search-text (タイトルのみ) でマッチ判定。
-      // textContent だと親が子のテキストを含んで誤マッチしていたのを修正。
       var nodes = inner.querySelectorAll('[data-search-text]');
+      // 一旦リセット
+      nodes.forEach(function(n){ n.classList.remove('search-match','search-dim','search-has-match'); });
+      inner.querySelectorAll('.search-force-open').forEach(function(n){ n.classList.remove('search-force-open'); });
+      if (!q) return;
+      var matchedNodes = [];
       nodes.forEach(function(n){
-        if (!q) { n.classList.remove('search-match','search-dim'); return; }
         var text = (n.getAttribute('data-search-text') || '').toLowerCase();
         var matches = text.indexOf(q) >= 0;
-        n.classList.toggle('search-match', matches);
-        n.classList.toggle('search-dim', !matches);
+        if (matches) { n.classList.add('search-match'); matchedNodes.push(n); }
+        else n.classList.add('search-dim');
+      });
+      // マッチノードの祖先 (data-search-text を持つ親) を search-has-match に。
+      // また、折りたたまれているコンテナを search-force-open で強制展開。
+      matchedNodes.forEach(function(n){
+        var anc = n.parentElement;
+        while (anc && anc !== inner) {
+          if (anc.dataset && anc.dataset.searchText) {
+            anc.classList.add('search-has-match');
+            anc.classList.remove('search-dim');
+          }
+          if (anc.classList && (anc.classList.contains('project-branch') || anc.classList.contains('sub-tree-row')) && anc.classList.contains('collapsed')) {
+            anc.classList.add('search-force-open');
+          }
+          anc = anc.parentElement;
+        }
       });
     }
     function renderDesktopHome(el) {
