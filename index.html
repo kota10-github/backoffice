@@ -1265,6 +1265,44 @@
           try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
         }
       })();
+      // 一度限り: PC 側の data.projectTasks 配列順を各タスクの orderIndex に
+      // 保存して sync に乗せる。同階層 (projectId × parentTaskId) ごとに採番。
+      (function migrateTaskOrderIndexFromPC(){
+        if (data._taskOrderInitV1) return;
+        var isPC = (typeof window !== 'undefined') && window.innerWidth > 768;
+        if (!isPC) return;
+        var byGroup = {};
+        (data.projectTasks || []).forEach(function(t, idx){
+          if (!t || t._deleted) return;
+          var k = (t.projectId == null ? 'p:null' : 'p:' + t.projectId) + '|' + (t.parentTaskId == null ? 't:null' : 't:' + t.parentTaskId);
+          (byGroup[k] = byGroup[k] || []).push({ t: t, idx: idx });
+        });
+        var now = Date.now();
+        var changed = false;
+        Object.keys(byGroup).forEach(function(k){
+          var group = byGroup[k];
+          group.sort(function(a,b){ return a.idx - b.idx; });
+          group.forEach(function(entry, i){
+            if (entry.t.orderIndex !== i) {
+              entry.t.orderIndex = i;
+              entry.t._modTs = (entry.t._modTs && entry.t._modTs >= now) ? entry.t._modTs + 1 : now;
+              changed = true;
+              try {
+                var dirtyKey = 'bo-manual-dirty';
+                var raw = localStorage.getItem(dirtyKey);
+                var dm = raw ? JSON.parse(raw) : {};
+                if (!dm || Array.isArray(dm)) dm = {};
+                dm['projectTasks:' + entry.t.id] = now;
+                localStorage.setItem(dirtyKey, JSON.stringify(dm));
+              } catch(e) {}
+            }
+          });
+        });
+        data._taskOrderInitV1 = true;
+        if (changed) {
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+        }
+      })();
       // 一度限りの色リセット: 「高単価アフィ」プロジェクトの tagId を null に戻す
       // (緊急度セレクタ UI 廃止後、ユーザーから「マップでの色を元に戻して」依頼)。
       (function resetKotankaAfiColor(){
@@ -1965,9 +2003,17 @@
         }
       }, true);
     })();
-    function getTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid; }); }
-    function getTopLevelTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid && !t.parentTaskId; }); }
-    function getChildTasks(parentId) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.parentTaskId === parentId; }); }
+    // タスク並び順比較: orderIndex がセットされていればそれを使い、未設定は
+    // 末尾扱い (id ASC で確定)。デバイス間で同じ結果になる。
+    function _taskOrderCmp(a, b) {
+      var ao = (typeof a.orderIndex === 'number') ? a.orderIndex : 1e9;
+      var bo = (typeof b.orderIndex === 'number') ? b.orderIndex : 1e9;
+      if (ao !== bo) return ao - bo;
+      return (a.id || 0) - (b.id || 0);
+    }
+    function getTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid; }).slice().sort(_taskOrderCmp); }
+    function getTopLevelTasksByProject(pid) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.projectId === pid && !t.parentTaskId; }).slice().sort(_taskOrderCmp); }
+    function getChildTasks(parentId) { return (data.projectTasks || []).filter(function(t) { return isLive(t) && t.parentTaskId === parentId; }).slice().sort(_taskOrderCmp); }
     // Pace tag + schedule helpers
     // 稼働ペースはプロジェクトタグ (data.tags) を使う。既存マニュアルの
     // paceTagId が旧 data.paceTags を指している場合はそちらにフォールバック。
@@ -3498,9 +3544,26 @@
         src._modTs = bumpModTs(src._modTs);
         markDirty('projectTasks', src.id);
         cascadeTaskProjectId(src.id, newProjId);
+        // 同階層の orderIndex を data.projectTasks 配列順で再採番
+        _reassignTaskOrderIndex(src.projectId, src.parentTaskId);
         saveData();
         toast(zone === 'inside' ? 'タスクを移動しました (子孫含む)' : '並び順を変更しました');
         render();
+      }
+      // 指定 (projectId, parentTaskId) 群の同階層タスクに対し、現在の
+      // data.projectTasks 配列順で orderIndex を 0,1,2... と振り直す。
+      function _reassignTaskOrderIndex(projectId, parentTaskId) {
+        var siblings = data.projectTasks.filter(function(t){
+          return t && !t._deleted && t.projectId === projectId && (t.parentTaskId == null ? null : t.parentTaskId) === (parentTaskId == null ? null : parentTaskId);
+        });
+        siblings.sort(function(a,b){ return data.projectTasks.indexOf(a) - data.projectTasks.indexOf(b); });
+        siblings.forEach(function(t, i){
+          if (t.orderIndex !== i) {
+            t.orderIndex = i;
+            t._modTs = bumpModTs(t._modTs);
+            markDirty('projectTasks', t.id);
+          }
+        });
       }
       window.cascadeTaskProjectId = cascadeTaskProjectId;
       window.handleTaskDragStart = handleTaskDragStart;
@@ -5334,8 +5397,10 @@
       return {
         keyFor: function(t){
           var po = (t && t.projectId != null && projOrder[t.projectId] != null) ? projOrder[t.projectId] : 1e9;
-          // タスクは id ASC (作成順) で並べる
-          return [po, (t && t.id) || 0];
+          // タスクは orderIndex (=マップ並び順)、未設定なら id ASC
+          var to = (t && typeof t.orderIndex === 'number') ? t.orderIndex : 1e9;
+          var tid = (t && t.id) || 0;
+          return [po, to, tid];
         }
       };
     }
@@ -5344,6 +5409,7 @@
         var ka = idx.keyFor(a), kb = idx.keyFor(b);
         if (ka[0] !== kb[0]) return ka[0] - kb[0];
         if (ka[1] !== kb[1]) return ka[1] - kb[1];
+        if (ka[2] !== kb[2]) return ka[2] - kb[2];
         return (a.title || '').localeCompare(b.title || '');
       });
     }
