@@ -7166,7 +7166,9 @@
       html += '<div class="breadcrumb"><span class="breadcrumb-item" onclick="navigate(\'home\')">マップ</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-item" onclick="navigate(\'project-detail\',{id:' + task.projectId + '})">' + escapeHtml(projName) + '</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-current">' + escapeHtml(task.title) + '</span></div>';
       // Header
       html += '<div class="page-header"><h1 class="page-title" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">';
-      html += '<div class="todo-checkbox ' + (task.done ? 'checked' : (task.inProgress ? 'in-progress' : '')) + '" onclick="expandProjectTaskActions(this,' + task.id + ',' + task.done + ')" style="flex-shrink:0">' + _taskStateSvg(task, 16) + '</div>';
+      // タスク詳細のチェックボックス: SVG を pointer-events:none にして、タップが
+      // 必ず親 div に届くように。クリックハンドラに stopPropagation も追加。
+      html += '<div class="todo-checkbox ' + (task.done ? 'checked' : (task.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + task.id + ',' + task.done + ')" style="flex-shrink:0;pointer-events:auto"><span style="pointer-events:none;display:inline-flex">' + _taskStateSvg(task, 16) + '</span></div>';
       // タイトルは contenteditable で折り返し対応 (モバイルで見切れを防止)
       html += '<span id="task-title-input" contenteditable="true" oninput="autoSaveTaskTitle(' + task.id + ')" style="font-size:22px;font-weight:600;letter-spacing:-0.02em;border:none;padding:0;background:transparent;flex:1;min-width:0;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.3;outline:none;' + (task.done ? 'text-decoration:line-through;opacity:.5' : '') + '">' + escapeHtml(task.title) + '</span>';
       html += '</h1>';
