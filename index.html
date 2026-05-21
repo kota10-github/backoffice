@@ -632,12 +632,16 @@
 .todo-checkbox:not(.expanded):hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(37,99,235,.3)}
 .todo-checkbox:not(.expanded):active{transform:scale(.95)}
 .todo-checkbox.checked:not(.expanded):hover{box-shadow:0 2px 8px rgba(5,150,105,.3)}
-.todo-checkbox.expanded{width:76px!important;height:32px!important;border-radius:999px;padding:0 8px;gap:8px;display:flex;align-items:center;justify-content:center;background:var(--primary);animation:expandPill .2s ease-out}
+.todo-checkbox.expanded{width:112px!important;height:32px!important;border-radius:999px;padding:0 6px;gap:4px;display:flex;align-items:center;justify-content:center;background:var(--primary);animation:expandPill .2s ease-out}
 @keyframes expandPill{from{transform:scaleX(.5);opacity:.8}to{transform:scaleX(1);opacity:1}}
 .todo-checkbox.expanded .action-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .15s;flex-shrink:0}
 .todo-checkbox.expanded .action-icon:hover{background:rgba(255,255,255,.25);transform:scale(1.15)}
 .todo-checkbox.expanded .action-icon:active{transform:scale(.85)}
 .todo-checkbox.expanded .action-icon.delete-icon:hover{background:rgba(239,68,68,.6)}
+.todo-checkbox.expanded .action-icon.progress-icon:hover{background:rgba(251,146,60,.5)}
+/* 進行中: 一目で分かるオレンジで表示。完了より弱く、未着手より強い視覚優先度。 */
+.todo-checkbox.in-progress{background:#fb923c!important;border-color:#fb923c!important;color:#fff!important}
+.todo-checkbox.in-progress:not(.expanded):hover{box-shadow:0 2px 8px rgba(251,146,60,.4)}
 .todo-detail-screen{padding:24px 32px;max-width:800px;animation:fadeIn .2s}
 .todo-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .todo-detail-back{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg-muted);cursor:pointer;padding:6px 12px;border-radius:var(--radius);transition:all .15s}
@@ -2345,7 +2349,7 @@
           var INDENT = 18, CBOX = 20, BASE = 14;
           var leftPad = BASE + depth * INDENT;
           html += '<div style="position:relative;padding:4px 0;padding-left:' + leftPad + 'px;font-size:12px;color:var(--fg-muted);display:flex;align-items:center;gap:6px;cursor:pointer;' + (t.done ? 'opacity:.5' : '') + '" onclick="event.stopPropagation();navigate(\'task-detail\',{id:' + t.id + '})">';
-          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : '') + '" style="width:' + CBOX + 'px;height:' + CBOX + 'px;font-size:8px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + (t.done ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:' + CBOX + 'px;height:' + CBOX + 'px;font-size:8px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 8) + '</div>';
           html += '<span style="' + (t.done ? 'text-decoration:line-through' : '') + '">' + escapeHtml(t.title) + '</span>' + dueBadgeHtml(t);
           html += '</div>';
           var kids = getVisibleChildren(t.id, visibleMProjTasks);
@@ -2369,7 +2373,7 @@
               var INDENT = 18, CBOX = 20, BASE = 14;
               var leftPad = BASE + depth * INDENT;
               html += '<div style="position:relative;padding:4px 0;padding-left:' + leftPad + 'px;font-size:12px;color:var(--fg-muted);display:flex;align-items:center;gap:6px;cursor:pointer;' + (t.done ? 'opacity:.5' : '') + '" onclick="event.stopPropagation();navigate(\'task-detail\',{id:' + t.id + '})">';
-              html += '<div class="todo-checkbox ' + (t.done ? 'checked' : '') + '" style="width:' + CBOX + 'px;height:' + CBOX + 'px;font-size:8px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + (t.done ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+              html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:' + CBOX + 'px;height:' + CBOX + 'px;font-size:8px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 8) + '</div>';
               html += '<span style="' + (t.done ? 'text-decoration:line-through' : '') + '">' + escapeHtml(t.title) + '</span>' + dueBadgeHtml(t);
               html += '</div>';
               getVisibleChildren(t.id, visibleSpTasks).forEach(function(c){ renderSpTaskRow(c, depth + 1); });
@@ -2607,7 +2611,7 @@
           var pc = getProjectColor(t.projectId);
           var projPath = (typeof _getProjectPathLabel === 'function') ? _getProjectPathLabel(t.projectId) : '';
           html += '<div onclick="navigate(\'task-detail\',{id:' + t.id + '})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border:1px solid var(--border-light);border-left:4px solid ' + pc.bg + ';border-radius:8px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.03)">';
-          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : '') + '" style="width:22px;height:22px;flex-shrink:0" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + (t.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:22px;height:22px;flex-shrink:0" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 11) + '</div>';
           html += '<div style="flex:1;min-width:0">';
           if (projPath) html += '<div style="font-size:11px;color:var(--fg-muted2);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(projPath) + '</div>';
           html += '<div style="font-size:15px;font-weight:500;color:var(--fg);word-break:break-word">' + escapeHtml(t.title) + '</div>';
@@ -2748,7 +2752,7 @@
           rowIdx++;
           html += '<div style="padding:10px 14px;padding-left:' + (14 + leftPad) + 'px;cursor:pointer;display:flex;align-items:center;gap:10px;position:relative;' + borderTop + '" onclick="navigate(\'task-detail\',{id:' + t.id + '})">';
           html += '<span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + urgencyColor + '"></span>';
-          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : '') + '" style="width:24px;height:24px;font-size:10px;margin-left:4px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + (t.done ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:24px;height:24px;font-size:10px;margin-left:4px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
           html += '<div style="flex:1;min-width:0">';
           html += '<div style="font-size:13px;font-weight:500;' + (t.done ? 'text-decoration:line-through;opacity:.5' : '') + '">' + escapeHtml(t.title) + '</div>';
           html += '<div style="font-size:11px;color:var(--fg-muted);display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:' + c.bg + '"></span>' + escapeHtml(projName) + (urgencyLabel ? ' <span style="color:' + urgencyColor + ';font-weight:600">' + urgencyLabel + '</span>' : '') + '</div>';
@@ -2995,7 +2999,7 @@
             ' ondrop="handleTaskDrop(event,' + t.id + ')"' +
             ' style="border-left:3px solid ' + taskBorder + ';background:' + taskBg + ';opacity:' + (t.done ? '.5' : '1') + ';cursor:pointer" onclick="event.stopPropagation();navigate(\'task-detail\',{id:' + t.id + '})">';
           html += '<div class="node-manual-title" style="color:' + color.bg + ';display:flex;align-items:center;gap:6px">';
-          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : '') + '" style="width:24px;height:24px;font-size:10px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + (t.done ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+          html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="width:24px;height:24px;font-size:10px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
           html += '<span style="' + (t.done ? 'text-decoration:line-through' : '') + '">' + escapeHtml(t.title) + '</span>' + dueBadgeHtml(t) + taskToggle;
           html += '</div></div>';
           // 右側 + (子タスクを追加)
@@ -3512,7 +3516,7 @@
               `</span>`;
           }
           html += `<div style="position:relative;display:flex;align-items:center;gap:10px;padding:6px 0;padding-left:${leftPad}px;cursor:pointer;min-height:32px" onclick="navigate('task-detail',{id:${t.id}})">${connectorSvg}`;
-          html += `<div class="todo-checkbox ${t.done ? 'checked' : ''}" style="width:${CBOX}px;height:${CBOX}px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,${t.id},${t.done})">${t.done ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>'}</div>`;
+          html += `<div class="todo-checkbox ${t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')}" style="width:${CBOX}px;height:${CBOX}px;position:relative;z-index:1" onclick="event.stopPropagation();expandProjectTaskActions(this,${t.id},${t.done})">${_taskStateSvg(t, 10)}</div>`;
           html += `<span style="flex:1;font-size:14px;${t.done ? 'text-decoration:line-through;opacity:.5' : ''}">${escapeHtml(t.title)}${dueBadgeHtml(t)}</span>`;
           html += `<button onclick="event.stopPropagation();showAddChildTask(${t.id})" style="background:none;border:none;padding:2px 8px;color:var(--primary);font-size:12px;cursor:pointer;flex-shrink:0">+ 子タスク</button>`;
           html += `</div>`;
@@ -6456,8 +6460,26 @@
     }
     function toggleProjectTask(taskId) {
       var task = (data.projectTasks || []).find(function(t) { return isLive(t) && t.id === taskId; });
-      if (task) { task.done = !task.done; task._modTs = bumpModTs(task._modTs); markDirty('projectTasks', task.id); saveData(); render(); }
+      if (task) {
+        task.done = !task.done;
+        // 完了 ⇄ 進行中は排他: 完了に切り替えたら進行中フラグは降ろす
+        if (task.done) task.inProgress = false;
+        task._modTs = bumpModTs(task._modTs);
+        markDirty('projectTasks', task.id);
+        saveData(); render();
+      }
     }
+    function toggleProjectTaskInProgress(taskId) {
+      var task = (data.projectTasks || []).find(function(t) { return isLive(t) && t.id === taskId; });
+      if (!task) return;
+      task.inProgress = !task.inProgress;
+      // 進行中をオンにしたら未完了状態に戻す (完了と排他)
+      if (task.inProgress && task.done) task.done = false;
+      task._modTs = bumpModTs(task._modTs);
+      markDirty('projectTasks', task.id);
+      saveData(); render();
+    }
+    window.toggleProjectTaskInProgress = toggleProjectTaskInProgress;
     function deleteProjectTask(taskId) {
       // Cascade: delete descendants too. Tombstone instead of physical removal
       // so the deletion propagates across devices via sync (remote merge is
@@ -6479,6 +6501,14 @@
       });
       saveData(); render();
     }
+    // タスク状態 → 表示する SVG (未着手=▶ / 進行中=⏸ / 完了=✓)
+    function _taskStateSvg(task, size) {
+      size = size || 12;
+      if (task && task.done) return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+      if (task && task.inProgress) return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+      return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>';
+    }
+    window._taskStateSvg = _taskStateSvg;
     function expandProjectTaskActions(el, taskId, isDone) {
       if (el.classList.contains('expanded')) {
         collapseProjectTaskCheckbox(el, isDone);
@@ -6486,20 +6516,24 @@
       }
       document.querySelectorAll('.todo-checkbox.expanded').forEach(function(other) {
         if (other !== el) {
-          var wasChecked = other.classList.contains('checked');
+          var oid = Number(other.getAttribute('data-task-id'));
+          var ot = oid ? (data.projectTasks || []).find(function(t){ return isLive(t) && t.id === oid; }) : null;
           other.classList.remove('expanded');
           var ow = other.getAttribute('data-orig-w');
           var oh = other.getAttribute('data-orig-h');
           other.style.width = ow || '';
           other.style.height = oh || '';
-          other.innerHTML = wasChecked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>';
+          other.innerHTML = _taskStateSvg(ot, 12);
         }
       });
       el.setAttribute('data-orig-w', el.style.width || '');
       el.setAttribute('data-orig-h', el.style.height || '');
+      el.setAttribute('data-task-id', String(taskId));
       el.classList.add('expanded');
-      el.innerHTML = '<span class="action-icon check-icon" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
-        '<span class="action-icon delete-icon" onclick="event.stopPropagation();deleteProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>';
+      el.innerHTML =
+        '<span class="action-icon check-icon" title="完了" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+        '<span class="action-icon progress-icon" title="進行中" onclick="event.stopPropagation();toggleProjectTaskInProgress(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>' +
+        '<span class="action-icon delete-icon" title="削除" onclick="event.stopPropagation();deleteProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>';
     }
     function collapseProjectTaskCheckbox(el, isDone) {
       el.classList.remove('expanded');
@@ -6507,11 +6541,9 @@
       var oh = el.getAttribute('data-orig-h');
       el.style.width = ow || '';
       el.style.height = oh || '';
-      if (isDone) {
-        el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
-      } else {
-        el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>';
-      }
+      var tid = Number(el.getAttribute('data-task-id'));
+      var t = tid ? (data.projectTasks || []).find(function(x){ return isLive(x) && x.id === tid; }) : null;
+      el.innerHTML = _taskStateSvg(t, 12);
     }
 
     var _taskTitleTimer = null;
@@ -6642,7 +6674,7 @@
       html += '<div class="breadcrumb"><span class="breadcrumb-item" onclick="navigate(\'home\')">マップ</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-item" onclick="navigate(\'project-detail\',{id:' + task.projectId + '})">' + escapeHtml(projName) + '</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-current">' + escapeHtml(task.title) + '</span></div>';
       // Header
       html += '<div class="page-header"><h1 class="page-title" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">';
-      html += '<div class="todo-checkbox ' + (task.done ? 'checked' : '') + '" onclick="toggleProjectTask(' + task.id + ')" style="flex-shrink:0">' + (task.done ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+      html += '<div class="todo-checkbox ' + (task.done ? 'checked' : (task.inProgress ? 'in-progress' : '')) + '" onclick="expandProjectTaskActions(this,' + task.id + ',' + task.done + ')" style="flex-shrink:0">' + _taskStateSvg(task, 16) + '</div>';
       // タイトルは contenteditable で折り返し対応 (モバイルで見切れを防止)
       html += '<span id="task-title-input" contenteditable="true" oninput="autoSaveTaskTitle(' + task.id + ')" style="font-size:22px;font-weight:600;letter-spacing:-0.02em;border:none;padding:0;background:transparent;flex:1;min-width:0;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.3;outline:none;' + (task.done ? 'text-decoration:line-through;opacity:.5' : '') + '">' + escapeHtml(task.title) + '</span>';
       html += '</h1>';
@@ -6702,7 +6734,7 @@
         html += '<div style="display:flex;flex-direction:column;gap:4px">';
         childTasks.forEach(function(ct) {
           html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer" onclick="navigate(\'task-detail\',{id:' + ct.id + '})">';
-          html += '<div class="todo-checkbox ' + (ct.done ? 'checked' : '') + '" style="width:18px;height:18px;font-size:8px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + ct.id + ',' + ct.done + ')">' + (ct.done ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+          html += '<div class="todo-checkbox ' + (ct.done ? 'checked' : (ct.inProgress ? 'in-progress' : '')) + '" style="width:18px;height:18px;font-size:8px" onclick="event.stopPropagation();expandProjectTaskActions(this,' + ct.id + ',' + ct.done + ')">' + _taskStateSvg(ct, 8) + '</div>';
           html += '<span style="' + (ct.done ? 'text-decoration:line-through;opacity:.5' : '') + '">' + escapeHtml(ct.title) + '</span>';
           html += '</div>';
         });
