@@ -5405,6 +5405,14 @@
     }
 
     function renderGantt(el) {
+      try { return _renderGanttImpl(el); }
+      catch (e) {
+        console.error('[gantt] render failed', e);
+        el.innerHTML = '<div class="page-header"><h1 class="page-title">ガントチャート</h1></div>' +
+          '<div class="card"><div class="card-body" style="color:var(--destructive);font-size:13px">表示エラー: ' + (e && e.message ? String(e.message) : String(e)) + '<br><span style="color:var(--fg-muted);font-size:11px">ブラウザのコンソールで詳細を確認できます。</span></div></div>';
+      }
+    }
+    function _renderGanttImpl(el) {
       var today = new Date();
       var start = new Date(today); start.setDate(start.getDate() - _GANTT_DAYS_BEHIND);
       var totalDays = _GANTT_DAYS_BEHIND + _GANTT_DAYS_AHEAD;
@@ -5430,13 +5438,25 @@
         _matrixSortByMap(childrenByParent[k], mapIdx);
       });
       // ツリー順 (親→子→孫) で depth を付与した平坦リスト。後でルートタブごとに分割。
+      // 循環参照や深すぎる階層に対する safe guard を入れる。
       var flatTasks = [];
+      var seenIds = {};
       function dfsTask(node, depth){
+        if (!node || seenIds[node.id] || depth > 50) return;
+        seenIds[node.id] = true;
         node._ganttDepth = depth;
         flatTasks.push(node);
         (childrenByParent[String(node.id)] || []).forEach(function(c){ dfsTask(c, depth + 1); });
       }
       (childrenByParent['__root__'] || []).forEach(function(r){ dfsTask(r, 0); });
+      // 親が消えてる孤児タスク (parentTaskId が指す親が live でない) も拾う
+      allTasks.forEach(function(t){
+        if (!seenIds[t.id]) {
+          t._ganttDepth = 0;
+          flatTasks.push(t);
+          seenIds[t.id] = true;
+        }
+      });
 
       // ルートプロジェクト (親タブ) でグルーピング。projectId が無い (孤児) は __orphan__
       var groupsMap = {};
