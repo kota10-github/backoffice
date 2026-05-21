@@ -5230,11 +5230,11 @@
     // (プロジェクト階層 + projectTasks 配列順) で固定し、マトリックスからの並び替えはなし。
     var MATRIX_ACTIVE_QS = [2, 1];
 
-    // マップ準拠のソートキーをタスク毎に算出。プロジェクトの階層を root から
-    // 辿った order と、所属プロジェクト内の projectTasks 配列内インデックスを連結。
+    // マップ準拠のソートキーをタスク毎に算出。デバイス間で一貫した順序を出す
+    // ため、配列インデックスではなく ID ベース (作成順) で並べる。プロジェクト
+    // は root から DFS で訪問し、各階層内では id ASC で固定。
     function _buildMatrixMapOrderIndex(){
-      var projOrder = {}; // projectId -> order
-      var visited = {};
+      var projOrder = {};
       var counter = { n: 0 };
       var byParent = {};
       (data.projects || []).forEach(function(p){
@@ -5242,21 +5242,21 @@
         var key = p.parentId == null ? '__root__' : String(p.parentId);
         (byParent[key] = byParent[key] || []).push(p);
       });
+      // 同階層は id ASC で並べる (デバイス間で同じ順序になる)
+      Object.keys(byParent).forEach(function(k){
+        byParent[k].sort(function(a,b){ return (a.id||0) - (b.id||0); });
+      });
       function visit(p){
-        if (visited[p.id]) return;
-        visited[p.id] = true;
+        if (projOrder[p.id] != null) return;
         projOrder[p.id] = counter.n++;
         (byParent[String(p.id)] || []).forEach(visit);
       }
       (byParent['__root__'] || []).forEach(visit);
-      // タスクの配列順インデックス (data.projectTasks 内位置)
-      var taskOrder = {};
-      (data.projectTasks || []).forEach(function(t, i){ if (t) taskOrder[t.id] = i; });
       return {
         keyFor: function(t){
           var po = (t && t.projectId != null && projOrder[t.projectId] != null) ? projOrder[t.projectId] : 1e9;
-          var to = (t && taskOrder[t.id] != null) ? taskOrder[t.id] : 1e9;
-          return [po, to];
+          // タスクは id ASC (作成順) で並べる
+          return [po, (t && t.id) || 0];
         }
       };
     }
