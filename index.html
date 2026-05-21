@@ -2517,6 +2517,9 @@
     window.dashCalToday = dashCalToday;
     window.dashCalSelect = dashCalSelect;
     function buildDeadlineCalendarHtml() {
+      // カレンダー UI 廃止 (ユーザー要望)。ガントチャートで代替。
+      // 復活時は下の return を消すだけで OK。
+      if (true) return '';
       // 完了タスクはカレンダーに出さない (live + dueDate + !done)
       var tasksByDate = {};
       (data.projectTasks || []).forEach(function(t){
