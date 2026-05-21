@@ -632,17 +632,14 @@
 @media (hover: hover) {
   .todo-checkbox:not(.expanded):hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(37,99,235,.3)}
   .todo-checkbox.checked:not(.expanded):hover{box-shadow:0 2px 8px rgba(5,150,105,.3)}
-  .todo-checkbox.expanded .action-icon.check-icon:hover{background:rgba(5,150,105,.12);transform:scale(1.12)}
-  .todo-checkbox.expanded .action-icon.progress-icon:hover{background:rgba(234,124,28,.12);transform:scale(1.12)}
-  .todo-checkbox.expanded .action-icon.delete-icon:hover{background:rgba(220,38,38,.12);transform:scale(1.12)}
+  .todo-checkbox.expanded .action-icon:hover{background:rgba(255,255,255,.2);transform:scale(1.12)}
+  .todo-checkbox.expanded .action-icon.delete-icon:hover{background:rgba(239,68,68,.55)}
+  .todo-checkbox.expanded .action-icon.progress-icon:hover{background:rgba(251,146,60,.5)}
 }
 .todo-checkbox:not(.expanded):active{transform:scale(.95)}
-.todo-checkbox.expanded{width:auto!important;min-width:104px;height:34px!important;border-radius:999px;padding:0 4px;gap:2px;display:inline-flex;align-items:center;justify-content:flex-start;background:#fff!important;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.08);animation:expandPill .15s ease-out;color:initial}
-@keyframes expandPill{from{transform:scaleX(.6);opacity:.6}to{transform:scaleX(1);opacity:1}}
-.todo-checkbox.expanded .action-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s;flex-shrink:0;touch-action:manipulation;background:transparent}
-.todo-checkbox.expanded .action-icon.check-icon{color:#059669}
-.todo-checkbox.expanded .action-icon.progress-icon{color:#ea7c1c}
-.todo-checkbox.expanded .action-icon.delete-icon{color:#dc2626}
+.todo-checkbox.expanded{width:112px!important;height:32px!important;border-radius:999px;padding:0 6px;gap:4px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b,#334155)!important;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:expandPill .2s ease-out;color:#fff}
+@keyframes expandPill{from{transform:scaleX(.5);opacity:.8}to{transform:scaleX(1);opacity:1}}
+.todo-checkbox.expanded .action-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .15s;flex-shrink:0;touch-action:manipulation}
 .todo-checkbox.expanded .action-icon:active{opacity:.6}
 /* 進行中: 一目で分かるオレンジで表示。完了より弱く、未着手より強い視覚優先度。 */
 .todo-checkbox.in-progress{background:#fb923c!important;border-color:#fb923c!important;color:#fff!important}
