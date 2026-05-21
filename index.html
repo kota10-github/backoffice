@@ -931,6 +931,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="3" rx="1"/><rect x="6" y="10" width="12" height="3" rx="1"/><rect x="4" y="15" width="8" height="3" rx="1"/></svg>
           ガントチャート
         </button>
+        <button class="nav-item" data-page="links" onclick="navigate('links')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          リンク
+        </button>
         <div class="sidebar-section-label">設定</div>
         <button class="nav-item" data-page="trash" onclick="navigate('trash')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -1983,6 +1987,7 @@
         case 'permissions': navigate('home'); return;
         case 'trash': renderTrash(main); break;
         case 'gantt': renderGantt(main); break;
+        case 'links': renderLinks(main); break;
         case 'member-page': renderMemberPage(main); break;
         default: main.innerHTML = '<p>Not Found</p>';
       }
@@ -5412,6 +5417,141 @@
 
       html += '</div></div></div>';
       el.innerHTML = html;
+    }
+
+    // ===== リンク一覧 =====
+    // project.memo / task.memo / manual.url を中心に、HTML 内の <a href="..."> も
+    // 拾って、ソース (どのプロジェクト・タスク・マニュアルか) と一緒に並べる。
+    function _looksLikeUrl(s){
+      if (!s || typeof s !== 'string') return false;
+      var t = s.trim();
+      return /^https?:\/\//i.test(t) || /^[\w-]+\.[\w.-]+\//.test(t);
+    }
+    function _extractUrlsFromHtml(html){
+      if (!html || typeof html !== 'string') return [];
+      var urls = [];
+      // <a href="..."> パターン
+      var re = /<a[^>]+href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      var m;
+      while ((m = re.exec(html)) !== null) {
+        var u = m[1].trim();
+        var text = m[2].replace(/<[^>]+>/g,'').trim();
+        if (u) urls.push({ url: u, text: text || u });
+      }
+      // 裸 URL (タグの外)
+      var stripped = html.replace(/<a[^>]+>[\s\S]*?<\/a>/gi, '');
+      var bare = /(https?:\/\/[^\s<>"']+)/gi;
+      var b;
+      while ((b = bare.exec(stripped)) !== null) {
+        urls.push({ url: b[1], text: b[1] });
+      }
+      return urls;
+    }
+
+    function renderLinks(el) {
+      // ソース毎に { source: '...', sourceId, page, urls: [{url, text}] }
+      var groups = [];
+
+      (data.projects || []).forEach(function(p){
+        if (!p || p._deleted) return;
+        var urls = [];
+        if (_looksLikeUrl(p.memo)) urls.push({ url: p.memo.trim(), text: p.memo.trim() });
+        if (p.description) urls = urls.concat(_extractUrlsFromHtml(p.description));
+        if (urls.length) {
+          groups.push({ kind: 'project', icon: icons.folder, name: p.name || '無題', urls: urls, onClick: 'navigate(\'project-detail\',{id:' + p.id + '})' });
+        }
+      });
+
+      (data.projectTasks || []).forEach(function(t){
+        if (!t || t._deleted) return;
+        var urls = [];
+        if (_looksLikeUrl(t.memo)) urls.push({ url: t.memo.trim(), text: t.memo.trim() });
+        else if (t.memo && /<a\s/i.test(t.memo)) urls = urls.concat(_extractUrlsFromHtml(t.memo));
+        if (urls.length) {
+          var projPath = _getTaskAncestorPathLabel(t);
+          groups.push({ kind: 'task', icon: icons.target, name: t.title || '無題', sub: projPath, urls: urls, onClick: 'navigate(\'task-detail\',{id:' + t.id + '})' });
+        }
+      });
+
+      (data.manuals || []).forEach(function(m){
+        if (!m || m._deleted) return;
+        var urls = [];
+        if (_looksLikeUrl(m.url)) urls.push({ url: m.url.trim(), text: m.url.trim() });
+        if (m.taskRoadmap) urls = urls.concat(_extractUrlsFromHtml(m.taskRoadmap));
+        if (urls.length) {
+          groups.push({ kind: 'manual', icon: icons.book, name: m.title || '無題', urls: urls });
+        }
+      });
+
+      var totalLinks = groups.reduce(function(s, g){ return s + g.urls.length; }, 0);
+
+      var html = '<div class="page-header"><h1 class="page-title">リンク</h1></div>';
+      html += renderBreadcrumb();
+      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:12px">プロジェクト・タスクのメモや本文に含まれるリンクを集約 (' + totalLinks + ' 件)。クリックで新規タブで開きます。</p>';
+
+      if (!groups.length) {
+        html += '<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--fg-muted)">リンクがまだありません</div></div>';
+        el.innerHTML = html; return;
+      }
+
+      // 検索
+      html += '<div style="margin-bottom:12px"><input class="input" id="links-search-input" type="search" placeholder="URL・タイトル・ソースで検索" oninput="onLinksSearchInput(this.value)" style="max-width:480px"></div>';
+      html += '<div id="links-body"></div>';
+      el.innerHTML = html;
+      window._linksGroups = groups;
+      _renderLinksBody('');
+    }
+
+    var _linksSearch = '';
+    function onLinksSearchInput(val) {
+      _linksSearch = (val || '').trim().toLowerCase();
+      _renderLinksBody(_linksSearch);
+    }
+    window.onLinksSearchInput = onLinksSearchInput;
+
+    function _renderLinksBody(q) {
+      var body = document.getElementById('links-body');
+      if (!body) return;
+      var groups = window._linksGroups || [];
+      var html = '';
+      groups.forEach(function(g){
+        var visibleUrls = g.urls;
+        if (q) {
+          visibleUrls = g.urls.filter(function(u){
+            return (u.url || '').toLowerCase().indexOf(q) >= 0 ||
+                   (u.text || '').toLowerCase().indexOf(q) >= 0 ||
+                   (g.name || '').toLowerCase().indexOf(q) >= 0 ||
+                   (g.sub || '').toLowerCase().indexOf(q) >= 0;
+          });
+        }
+        if (!visibleUrls.length) return;
+        html += '<div class="card mb-4">';
+        html += '<div class="card-header" style="display:flex;align-items:center;gap:8px">';
+        html += '<span style="color:var(--fg-muted)">' + g.icon + '</span>';
+        html += '<div style="flex:1;min-width:0">';
+        if (g.onClick) {
+          html += '<div style="font-weight:600;font-size:13px;color:var(--fg);cursor:pointer" onclick="' + g.onClick + '">' + escapeHtml(g.name) + '</div>';
+        } else {
+          html += '<div style="font-weight:600;font-size:13px;color:var(--fg)">' + escapeHtml(g.name) + '</div>';
+        }
+        if (g.sub) html += '<div style="font-size:11px;color:var(--fg-muted2);margin-top:2px">' + escapeHtml(g.sub) + '</div>';
+        html += '</div>';
+        html += '<span class="badge badge-secondary" style="margin-left:auto">' + visibleUrls.length + '</span>';
+        html += '</div>';
+        html += '<div class="card-body" style="display:flex;flex-direction:column;gap:6px">';
+        visibleUrls.forEach(function(u){
+          var displayText = u.text && u.text !== u.url ? u.text : u.url;
+          var href = u.url;
+          if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-muted);border-radius:6px">';
+          html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" style="flex:1;min-width:0;color:var(--primary);text-decoration:none;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(u.url) + '">' + escapeHtml(displayText) + '</a>';
+          html += '<button class="btn btn-ghost btn-icon btn-sm" title="リンクをコピー" onclick="navigator.clipboard.writeText(\'' + escapeHtml(u.url).replace(/'/g, "\\'") + '\');toast(\'リンクをコピーしました\')">' + icons.copy + '</button>';
+          html += '</div>';
+        });
+        html += '</div></div>';
+      });
+      if (!html) html = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;color:var(--fg-muted)">該当するリンクがありません</div></div>';
+      body.innerHTML = html;
     }
 
     var _todosSearch = '';
