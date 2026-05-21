@@ -3144,7 +3144,8 @@
             html += `</div></div>`; // close sub-tree-card-wrap, sub-tree-row
           });
           // Map hides completed tasks; children whose parent is hidden get promoted to top-level
-          var vProjTasks = projTasks.filter(function(t){ return !t.done; });
+          // 検索中は完了タスクも含めて表示 (検索ヒット可能にする)
+          var vProjTasks = _mapSearch ? projTasks : projTasks.filter(function(t){ return !t.done; });
           var vProjIds = {}; vProjTasks.forEach(function(t){ vProjIds[t.id] = true; });
           vProjTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vProjIds[t.parentTaskId]) ? t.parentTaskId : null; });
           vProjTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) {
@@ -3194,7 +3195,8 @@
             html += '</div></div>';
           });
           // Map hides completed tasks; promote orphaned visible children
-          var vSpTasks = spTasks.filter(function(t){ return !t.done; });
+          // 検索中は完了タスクも含めて表示 (検索ヒット可能にする)
+          var vSpTasks = _mapSearch ? spTasks : spTasks.filter(function(t){ return !t.done; });
           var vSpIds = {}; vSpTasks.forEach(function(t){ vSpIds[t.id] = true; });
           vSpTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vSpIds[t.parentTaskId]) ? t.parentTaskId : null; });
           vSpTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) { renderTaskBranch(t, sc); });
@@ -7461,7 +7463,169 @@
     // 5 分以上空いたら別バッチ扱い。
     var TRASH_BATCH_GAP_MS = 5 * 60 * 1000;
 
+    var _trashSearch = '';
+    function onTrashSearchInput(val) {
+      _trashSearch = (val || '').trim().toLowerCase();
+      _renderTrashBody();
+    }
+    window.onTrashSearchInput = onTrashSearchInput;
+
+    function _trashRootTabId(projId) {
+      if (projId == null) return null;
+      var cur = (data.projects || []).find(function(p){ return p && p.id === projId; });
+      var guard = 0;
+      while (cur && cur.parentId != null && guard++ < 30) {
+        cur = (data.projects || []).find(function(p){ return p && p.id === cur.parentId; });
+      }
+      return cur ? cur.id : null;
+    }
+
     function renderTrash(el) {
+      var totalProj = (data.projects || []).filter(function(p){ return p && p._deleted; }).length;
+      var totalTask = (data.projectTasks || []).filter(function(t){ return t && t._deleted; }).length;
+      var totalMan = MANUALS_UI_ENABLED ? (data.manuals || []).filter(function(m){ return m && m._deleted; }).length : 0;
+      var total = totalProj + totalTask + totalMan;
+
+      var html = '<div class="page-header"><h1 class="page-title">ゴミ箱</h1></div>';
+      html += renderBreadcrumb();
+      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:12px">削除されたアイテム（合計 <strong>' + total + '</strong> 件）。タブごとに表示。検索で絞り込み可。</p>';
+
+      if (!total) {
+        html += '<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--fg-muted)">ゴミ箱は空です</div></div>';
+        el.innerHTML = html; return;
+      }
+
+      html += '<div style="margin-bottom:12px"><input class="input" id="trash-search-input" type="search" placeholder="タイトル・タブ名で検索" value="' + escapeHtml(_trashSearch) + '" oninput="onTrashSearchInput(this.value)" style="max-width:480px"></div>';
+      html += '<div id="trash-body"></div>';
+      html += '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
+           + '<button class="btn btn-primary" onclick="restoreAllFromTrash()">' + icons.check + ' すべて復元</button>'
+           + '</div>';
+      el.innerHTML = html;
+      _renderTrashBody();
+    }
+
+    function _renderTrashBody() {
+      var body = document.getElementById('trash-body');
+      if (!body) return;
+      var q = _trashSearch;
+      var fmtTs = function(ts){
+        if (!ts) return '不明';
+        try { var d = new Date(ts > 1e12 ? ts : ts*1000); return d.toLocaleString('ja-JP'); } catch(e) { return '不明'; }
+      };
+
+      var items = [];
+      (data.projects || []).forEach(function(p){ if (p && p._deleted) items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0 }); });
+      if (MANUALS_UI_ENABLED) {
+        (data.manuals || []).forEach(function(m){ if (m && m._deleted) items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0 }); });
+      }
+      (data.projectTasks || []).forEach(function(t){ if (t && t._deleted) items.push({ kind:'projectTasks', label:'タスク', icon:icons.target, name:t.title||'無題', item:t, ts:t._modTs||0 }); });
+
+      items.forEach(function(x){
+        var pid = (x.kind === 'projects')
+          ? (x.item.parentId == null ? x.item.id : x.item.parentId)
+          : x.item.projectId;
+        x.rootId = _trashRootTabId(pid) || pid;
+      });
+
+      var filtered = items.filter(function(x){
+        if (!q) return true;
+        var hay = (x.name || '').toLowerCase();
+        var root = x.rootId != null ? (data.projects || []).find(function(p){ return p && p.id === x.rootId; }) : null;
+        if (root) hay += ' ' + (root.name || '').toLowerCase();
+        var ownerProj = (x.kind !== 'projects' && x.item.projectId != null) ? (data.projects || []).find(function(p){ return p && p.id === x.item.projectId; }) : null;
+        if (ownerProj) hay += ' ' + (ownerProj.name || '').toLowerCase();
+        return hay.indexOf(q) >= 0;
+      });
+
+      if (!filtered.length) {
+        body.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;color:var(--fg-muted)">該当するアイテムがありません</div></div>';
+        return;
+      }
+
+      var groupsMap = {};
+      var groupOrder = [];
+      filtered.forEach(function(x){
+        var k = x.rootId == null ? '__orphan__' : String(x.rootId);
+        if (!groupsMap[k]) {
+          var rp = x.rootId != null ? (data.projects || []).find(function(p){ return p && p.id === x.rootId; }) : null;
+          groupsMap[k] = { rootId: x.rootId, rootProj: rp, items: [] };
+          groupOrder.push(k);
+        }
+        groupsMap[k].items.push(x);
+      });
+
+      var html = '';
+      groupOrder.forEach(function(k){
+        var g = groupsMap[k];
+        var name = g.rootProj ? (g.rootProj.name || '無題') : '(タブ未設定)';
+        var tabDeleted = g.rootProj && g.rootProj._deleted;
+        var c = g.rootProj ? getProjectColor(g.rootProj.id) : { bg:'#94a3b8', light:'#f1f5f9', text:'#475569' };
+        html += '<div class="card mb-4">';
+        html += '<div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:' + c.light + ';border-left:4px solid ' + c.bg + '">';
+        html += '<div style="font-weight:600;color:' + c.text + ';font-size:13px">' + icons.folder + ' ' + escapeHtml(name) + (tabDeleted ? ' <span style="font-size:11px;color:var(--destructive);font-weight:500">[タブも削除済]</span>' : '') + ' <span class="text-xs" style="color:' + c.bg + ';margin-left:6px">' + g.items.length + '件</span></div>';
+        html += '<button class="btn btn-outline btn-sm" onclick="restoreTabGroup(' + (g.rootId == null ? 'null' : g.rootId) + ')">このタブを復元</button>';
+        html += '</div>';
+        html += '<div class="card-body" style="display:flex;flex-direction:column;gap:4px">';
+        g.items.sort(function(a,b){ return b.ts - a.ts; });
+        g.items.forEach(function(x){
+          var par = null;
+          if (x.kind === 'manuals' || x.kind === 'projectTasks') {
+            par = (data.projects || []).find(function(p){ return p.id === x.item.projectId; });
+          } else if (x.kind === 'projects' && x.item.parentId != null) {
+            par = (data.projects || []).find(function(p){ return p.id === x.item.parentId; });
+          }
+          var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
+          html += '<div class="user-row"><div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1"><span style="color:var(--fg-muted);flex-shrink:0">' + x.icon + '</span>'
+               + '<div style="min-width:0;flex:1"><p style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(x.name) + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
+               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">' + x.label + ' / ' + fmtTs(x.ts) + '</p></div></div>'
+               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'' + x.kind + '\',' + x.item.id + ')">復元</button></div></div>';
+        });
+        html += '</div></div>';
+      });
+      body.innerHTML = html;
+    }
+
+    function restoreTabGroup(rootId) {
+      var doRestore = function(kind, item) {
+        if (!item || !item._deleted) return;
+        item._deleted = false;
+        item._modTs = bumpModTs(item._modTs);
+        markDirty(kind, item.id);
+      };
+      var projIds = new Set();
+      if (rootId != null) {
+        var rp = (data.projects || []).find(function(p){ return p && p.id === rootId; });
+        if (rp) { doRestore('projects', rp); projIds.add(rp.id); }
+      }
+      var changed = true;
+      while (changed) {
+        changed = false;
+        (data.projects || []).forEach(function(p){
+          if (p && p._deleted && p.parentId != null && projIds.has(p.parentId)) {
+            doRestore('projects', p);
+            projIds.add(p.id);
+            changed = true;
+          }
+        });
+      }
+      (data.projectTasks || []).forEach(function(t){
+        if (t && t._deleted && projIds.has(t.projectId)) doRestore('projectTasks', t);
+      });
+      if (MANUALS_UI_ENABLED) {
+        (data.manuals || []).forEach(function(m){
+          if (m && m._deleted && projIds.has(m.projectId)) doRestore('manuals', m);
+        });
+      }
+      if (rootId == null) {
+        (data.projectTasks || []).forEach(function(t){
+          if (t && t._deleted && _trashRootTabId(t.projectId) == null) doRestore('projectTasks', t);
+        });
+      }
+      saveData(); toast('タブごと復元しました'); render();
+    }
+    window.restoreTabGroup = restoreTabGroup;
+
+    function renderTrash_legacy(el) {
       // 全 tombstone を type 付きで集約
       var items = [];
       (data.projects || []).forEach(function(p){ if (p && p._deleted) items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0 }); });
