@@ -7105,7 +7105,13 @@
       (data.projectTasks || []).forEach(function(t) {
         if (toDelete.has(t.id)) { t._deleted = true; t._modTs = bumpModTs(t._modTs); markDirty('projectTasks', t.id); }
       });
-      saveData(); render();
+      saveData();
+      // 削除されたタスクの詳細ページを開いている場合はガントへ戻す
+      if (currentPage === 'task-detail' && pageParams && toDelete.has(pageParams.id)) {
+        navigate('gantt');
+      } else {
+        render();
+      }
     }
     // タスク状態 → 表示する SVG (未着手=▶ / 進行中=⏸ / 完了=✓)
     function _taskStateSvg(task, size) {
@@ -7292,7 +7298,7 @@
       // タイトルは contenteditable で折り返し対応 (モバイルで見切れを防止)
       html += '<span id="task-title-input" contenteditable="true" oninput="autoSaveTaskTitle(' + task.id + ')" style="font-size:22px;font-weight:600;letter-spacing:-0.02em;border:none;padding:0;background:transparent;flex:1;min-width:0;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.3;outline:none;' + (task.done ? 'text-decoration:line-through;opacity:.5' : '') + '">' + escapeHtml(task.title) + '</span>';
       html += '</h1>';
-      html += '<button class="btn btn-destructive btn-sm" onclick="if(confirm(\'このタスクを削除しますか？\')){deleteProjectTask(' + task.id + ');navigate(\'todos\')}">削除</button>';
+      html += '<button class="btn btn-destructive btn-sm" onclick="if(confirm(\'このタスクを削除しますか？\')){deleteProjectTask(' + task.id + ')}">削除</button>';
       html += '</div>';
       // 2-column layout: info on side, memo in main
       html += '<div class="manual-form-layout">';
