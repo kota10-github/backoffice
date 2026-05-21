@@ -632,13 +632,16 @@
 .todo-checkbox:not(.expanded):hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(37,99,235,.3)}
 .todo-checkbox:not(.expanded):active{transform:scale(.95)}
 .todo-checkbox.checked:not(.expanded):hover{box-shadow:0 2px 8px rgba(5,150,105,.3)}
-.todo-checkbox.expanded{width:112px!important;height:32px!important;border-radius:999px;padding:0 6px;gap:4px;display:flex;align-items:center;justify-content:center;background:var(--primary);animation:expandPill .2s ease-out}
+.todo-checkbox.expanded{width:152px!important;height:42px!important;border-radius:999px;padding:3px 6px;gap:4px;display:flex;align-items:center;justify-content:space-around;background:#fff;border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.12);animation:expandPill .2s ease-out;overflow:visible!important}
 @keyframes expandPill{from{transform:scaleX(.5);opacity:.8}to{transform:scaleX(1);opacity:1}}
-.todo-checkbox.expanded .action-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .15s;flex-shrink:0}
-.todo-checkbox.expanded .action-icon:hover{background:rgba(255,255,255,.25);transform:scale(1.15)}
-.todo-checkbox.expanded .action-icon:active{transform:scale(.85)}
-.todo-checkbox.expanded .action-icon.delete-icon:hover{background:rgba(239,68,68,.6)}
-.todo-checkbox.expanded .action-icon.progress-icon:hover{background:rgba(251,146,60,.5)}
+.todo-checkbox.expanded .action-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;touch-action:manipulation}
+.todo-checkbox.expanded .action-icon.check-icon{background:#10b981;color:#fff}
+.todo-checkbox.expanded .action-icon.check-icon:hover{background:#059669;transform:scale(1.1)}
+.todo-checkbox.expanded .action-icon.progress-icon{background:#fb923c;color:#fff}
+.todo-checkbox.expanded .action-icon.progress-icon:hover{background:#ea7c1c;transform:scale(1.1)}
+.todo-checkbox.expanded .action-icon.delete-icon{background:#ef4444;color:#fff}
+.todo-checkbox.expanded .action-icon.delete-icon:hover{background:#dc2626;transform:scale(1.1)}
+.todo-checkbox.expanded .action-icon:active{transform:scale(.9)}
 /* 進行中: 一目で分かるオレンジで表示。完了より弱く、未着手より強い視覚優先度。 */
 .todo-checkbox.in-progress{background:#fb923c!important;border-color:#fb923c!important;color:#fff!important}
 .todo-checkbox.in-progress:not(.expanded):hover{box-shadow:0 2px 8px rgba(251,146,60,.4)}
@@ -7009,9 +7012,9 @@
       el.setAttribute('data-task-id', String(taskId));
       el.classList.add('expanded');
       el.innerHTML =
-        '<span class="action-icon check-icon" title="完了" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
-        '<span class="action-icon progress-icon" title="進行中" onclick="event.stopPropagation();toggleProjectTaskInProgress(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>' +
-        '<span class="action-icon delete-icon" title="削除" onclick="event.stopPropagation();deleteProjectTask(' + taskId + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>';
+        '<span class="action-icon check-icon" title="完了" onclick="event.stopPropagation();toggleProjectTask(' + taskId + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+        '<span class="action-icon progress-icon" title="進行中" onclick="event.stopPropagation();toggleProjectTaskInProgress(' + taskId + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>' +
+        '<span class="action-icon delete-icon" title="削除" onclick="event.stopPropagation();deleteProjectTask(' + taskId + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>';
     }
     function collapseProjectTaskCheckbox(el, isDone) {
       el.classList.remove('expanded');
