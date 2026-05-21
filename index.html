@@ -5586,82 +5586,23 @@
         if (ahead > _GANTT_DAYS_AHEAD) totalDays = _GANTT_DAYS_BEHIND + ahead + 3;
       });
       var mapIdx = _buildMatrixMapOrderIndex();
-      var childrenByParent = {};
-      allTasks.forEach(function(t){
-        var k = t.parentTaskId == null ? '__root__' : String(t.parentTaskId);
-        (childrenByParent[k] = childrenByParent[k] || []).push(t);
-      });
-      // 兄弟は締切が早い順に並べる (期限未設定は末尾)。同じ締切は map 準拠。
+      // 親子関係は無視して全タスクを完全フラットに並べる。締切が早い順、
+      // 期限未設定は末尾 (同着は map 準拠)。
       function _ganttDueKey(t) {
         var d = _ganttParseYmd(t && t.dueDate);
         return d ? d.getTime() : Infinity;
       }
-      Object.keys(childrenByParent).forEach(function(k){
-        childrenByParent[k].sort(function(a,b){
-          var da = _ganttDueKey(a), db = _ganttDueKey(b);
-          if (da !== db) return da - db;
-          // 同着は map 順 (orderIndex) → id ASC
-          var ka = mapIdx.keyFor(a), kb = mapIdx.keyFor(b);
-          if (ka[1] !== kb[1]) return ka[1] - kb[1];
-          return ka[2] - kb[2];
-        });
-      });
-      // ツリー順 (親→子→孫) で depth を付与した平坦リスト。後でルートタブごとに分割。
-      // 循環参照や深すぎる階層に対する safe guard を入れる。
-      var flatTasks = [];
-      var seenIds = {};
-      function dfsTask(node, depth){
-        if (!node || seenIds[node.id] || depth > 50) return;
-        seenIds[node.id] = true;
-        node._ganttDepth = depth;
-        flatTasks.push(node);
-        (childrenByParent[String(node.id)] || []).forEach(function(c){ dfsTask(c, depth + 1); });
-      }
-      (childrenByParent['__root__'] || []).forEach(function(r){ dfsTask(r, 0); });
-      // 親が消えてる孤児タスク (parentTaskId が指す親が live でない) も拾う
-      allTasks.forEach(function(t){
-        if (!seenIds[t.id]) {
-          t._ganttDepth = 0;
-          flatTasks.push(t);
-          seenIds[t.id] = true;
-        }
+      var flatTasks = allTasks.slice();
+      flatTasks.forEach(function(t){ t._ganttDepth = 0; });
+      flatTasks.sort(function(a,b){
+        var da = _ganttDueKey(a), db = _ganttDueKey(b);
+        if (da !== db) return da - db;
+        var ka = mapIdx.keyFor(a), kb = mapIdx.keyFor(b);
+        if (ka[0] !== kb[0]) return ka[0] - kb[0];
+        if (ka[1] !== kb[1]) return ka[1] - kb[1];
+        return ka[2] - kb[2];
       });
 
-      // ルートプロジェクト (親タブ) でグルーピング。projectId が無い (孤児) は __orphan__
-      var groupsMap = {};
-      var groupOrder = [];
-      flatTasks.forEach(function(t){
-        var rid = _ganttRootProjectId(t);
-        var key = rid == null ? '__orphan__' : String(rid);
-        if (!groupsMap[key]) {
-          var proj = rid != null ? (data.projects || []).find(function(p){ return p && p.id === rid; }) : null;
-          groupsMap[key] = { key: key, rootId: rid, proj: proj, tasks: [] };
-          groupOrder.push(key);
-        }
-        groupsMap[key].tasks.push(t);
-      });
-      // ルートプロジェクトは「グループ内で最早の締切」を持つ方を上に。
-      // 全タスクが期限未設定のグループは末尾、その中では map 順。
-      function _ganttGroupEarliestDue(g) {
-        var min = Infinity;
-        g.tasks.forEach(function(t){
-          var d = _ganttParseYmd(t.dueDate);
-          if (d) min = Math.min(min, d.getTime());
-        });
-        return min;
-      }
-      groupOrder.sort(function(a, b){
-        var ga = groupsMap[a], gb = groupsMap[b];
-        if (!ga.proj && gb.proj) return 1;
-        if (ga.proj && !gb.proj) return -1;
-        var da = _ganttGroupEarliestDue(ga), db = _ganttGroupEarliestDue(gb);
-        if (da !== db) return da - db;
-        // 同着は map 順
-        if (!ga.proj || !gb.proj) return 0;
-        var oa = ga.tasks[0] ? mapIdx.keyFor(ga.tasks[0]) : [1e9, 1e9, 1e9];
-        var ob = gb.tasks[0] ? mapIdx.keyFor(gb.tasks[0]) : [1e9, 1e9, 1e9];
-        return oa[0] - ob[0];
-      });
       var tasksTotal = flatTasks.length;
 
       var html = '<div class="page-header"><h1 class="page-title">ガントチャート</h1></div>';
@@ -5735,9 +5676,8 @@
         })();
         var pc = getProjectColor(t.projectId);
         var urgencyColor = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : pc.bg);
-        var depth = t._ganttDepth || 0;
-        var indentPx = depth * 14;
-        html += '<div class="gantt-row-left" data-task-id="' + t.id + '" onclick="navigate(\'task-detail\',{id:' + t.id + '})" oncontextmenu="showTaskContextMenu(event,' + t.id + ')" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + ';padding-left:' + (10 + indentPx) + 'px">';
+        // 親子関係を切り離し、全タスクをフラット表示 (インデントなし)
+        html += '<div class="gantt-row-left" data-task-id="' + t.id + '" onclick="navigate(\'task-detail\',{id:' + t.id + '})" oncontextmenu="showTaskContextMenu(event,' + t.id + ')" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + '">';
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
         // 親タブ + 親タスク chain と本タスク名を縦に並べる
         html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden">';
@@ -5795,11 +5735,8 @@
           html += '<div class="gantt-bar" style="' + barStyleU + '">進行中・期限未設定</div>';
         }
       }
-      // グループヘッダは廃止 — 全タスクを平坦に表示 (各行で親パスを小さく表示済み)
-      groupOrder.forEach(function(gkey){
-        var g = groupsMap[gkey];
-        g.tasks.forEach(renderGanttRow);
-      });
+      // 全タスクをフラットに描画 (親子は分離、各行で親パスを小さく表示済み)
+      flatTasks.forEach(renderGanttRow);
 
       // Today vertical line
       if (todayCol >= 0) {
