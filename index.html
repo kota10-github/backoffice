@@ -5362,18 +5362,16 @@
       tasks.forEach(function(t){
         var due = _ganttParseYmd(t.dueDate);
         var qEff = getEffectiveMatrixQ(t);
-        var qCls = qEff === 1 ? 'q1' : (qEff === 2 ? 'q2' : '');
         var projPath = _getTaskAncestorPathLabel(t);
-        // プロジェクトの緊急度タグ色 (getProjectColor) を行頭に表示。タグ未設定は
-        // デフォルトのグレー (#94a3b8)。
+        // 緊急度色: matrixQ (Q1=赤 / Q2=青) を優先し、なければプロジェクトの
+        // タグ色 (getProjectColor)。両方なければデフォルトのグレー。
         var pc = getProjectColor(t.projectId);
+        var urgencyColor = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : pc.bg);
 
-        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + pc.bg + '">';
+        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + '">';
         // 状態チェックボックスは表示専用 (ガントチャート上では編集不可。タスク
         // 詳細やマップ・タスクタブで状態変更してね)。
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="pointer-events:none">' + _taskStateSvg(t, 10) + '</div>';
-        // タイトル左の色帯 (緊急度タグ色)。チェックボックスとタイトルの間に挟む。
-        html += '<span style="display:inline-block;width:4px;height:18px;border-radius:2px;background:' + pc.bg + ';flex-shrink:0"></span>';
         html += '<span class="gantt-row-title">' + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
@@ -5388,10 +5386,10 @@
           var cls2 = 'gantt-cell' + (isT ? ' today' : '') + (we ? ' weekend' : '');
           html += '<div class="' + cls2 + '" style="width:' + dayW + 'px;height:42px"></div>';
         }
-        // バーの色: matrixQ (Q1=赤 / Q2=青) があれば優先。なければプロジェクトの
-        // 緊急度タグ色 (pc.bg)。タグ未設定はデフォルトのオレンジ (#fb923c)。
-        var hasTag = pc && pc.bg && pc.bg !== '#94a3b8';
-        var barBg = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : (hasTag ? pc.bg : '#fb923c'));
+        // バーの色: 緊急度色 (matrixQ または tag) を優先。両方なければデフォルト
+        // のオレンジ (#fb923c) で進行中らしさを出す。
+        var hasUrgency = (qEff === 1 || qEff === 2) || (pc && pc.bg && pc.bg !== '#94a3b8');
+        var barBg = hasUrgency ? urgencyColor : '#fb923c';
         // バー
         if (due) {
           var barStart = new Date(today);
