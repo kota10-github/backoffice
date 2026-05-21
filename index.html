@@ -664,9 +664,9 @@
 .gantt-header-day{flex-shrink:0;text-align:center;border-right:1px solid var(--border-light);padding:4px 0;line-height:1.2;display:flex;flex-direction:column;justify-content:center}
 .gantt-header-day.today{background:#dbeafe;color:#1d4ed8;font-weight:700}
 .gantt-header-day.weekend{background:#f1f5f9}
-.gantt-row-left{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--border);border-bottom:1px solid var(--border-light);padding:10px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:42px}
+.gantt-row-left{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--border);border-bottom:1px solid var(--border-light);padding:8px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:42px}
 .gantt-row-left:hover{background:var(--bg-muted)}
-.gantt-row-left .gantt-row-state{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff}
+.gantt-row-left .todo-checkbox{width:22px!important;height:22px!important;flex-shrink:0}
 .gantt-row-left .gantt-row-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
 .gantt-row-left .gantt-row-meta{font-size:10px;color:var(--fg-muted2);flex-shrink:0}
 .gantt-row-right{position:relative;border-bottom:1px solid var(--border-light);min-height:42px;display:flex}
@@ -683,7 +683,9 @@
 .gantt-bar.q1.undated,.gantt-bar.q2.undated{}
 .gantt-today-line{position:absolute;top:0;bottom:0;width:2px;background:#2563eb;z-index:1;pointer-events:none}
 .gantt-empty-msg{padding:32px;text-align:center;color:var(--fg-muted)}
-@media(max-width:768px){.gantt-grid{grid-template-columns:160px 1fr}.gantt-row-left{padding:8px;font-size:12px}}
+/* モバイルでは左カラムを画面幅の 40% にする。grid-template-columns は JS で
+   左カラム幅を計算して inline に埋めるので、ここでは padding 等のみ調整。 */
+@media(max-width:768px){.gantt-row-left{padding:8px;font-size:12px;gap:6px}.gantt-row-left .gantt-row-title{font-size:12px}.gantt-row-left .gantt-row-meta{font-size:9px}}
 .todo-detail-action-btn.add{background:#334155;color:#fff;border-color:#334155}
 .todo-detail-action-btn.add:hover{background:#1e293b}
 .todo-detail-action-btn.undo{background:#fff;color:var(--fg-muted);border-color:var(--border)}
@@ -5329,9 +5331,12 @@
 
       var dayW = _GANTT_DAY_PX;
       var gridW = totalDays * dayW;
+      // モバイルでは左カラムを画面幅の 40% (= 4:6 比率) にする。PC は 240px。
+      var isMobile = (typeof window !== 'undefined') && window.innerWidth <= 768;
+      var leftColW = isMobile ? Math.max(120, Math.floor(window.innerWidth * 0.4)) : 240;
 
       html += '<div class="gantt-wrap"><div class="gantt-scroll">';
-      html += '<div class="gantt-grid" style="grid-template-columns:240px ' + gridW + 'px">';
+      html += '<div class="gantt-grid" style="grid-template-columns:' + leftColW + 'px ' + gridW + 'px">';
       // Header
       html += '<div class="gantt-header-left">タスク</div>';
       html += '<div class="gantt-header-right" style="width:' + gridW + 'px">';
@@ -5355,12 +5360,12 @@
         var due = _ganttParseYmd(t.dueDate);
         var qEff = getEffectiveMatrixQ(t);
         var qCls = qEff === 1 ? 'q1' : (qEff === 2 ? 'q2' : '');
-        var stateChar = t.inProgress ? '⏸' : '▶';
-        var stateBg = t.inProgress ? '#fb923c' : '#94a3b8';
         var projPath = _getTaskAncestorPathLabel(t);
 
         html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '">';
-        html += '<span class="gantt-row-state" style="background:' + stateBg + '">' + stateChar + '</span>';
+        // 状態チェックボックスはマップ・タスクタブと同じ todo-checkbox を使用。
+        // タップで完了/進行中/削除のアクションピルが展開される。
+        html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" onclick="event.stopPropagation();expandProjectTaskActions(this,' + t.id + ',' + t.done + ')">' + _taskStateSvg(t, 10) + '</div>';
         html += '<span class="gantt-row-title">' + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
