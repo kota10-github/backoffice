@@ -5419,10 +5419,10 @@
         var children = siblingPool.filter(function(c){ return c.parentTaskId === task.id; });
         var hasChildren = children.length > 0;
         var indent = depth * 18 + 8;
-        html += '<div class="todo-item' + (task.done ? ' done' : '') + '" style="position:relative;margin:0;border:none;padding:4px 0 4px ' + indent + 'px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="navigate(\'task-detail\',{id:' + task.id + '})">';
+        html += '<div class="todo-item' + (task.done ? ' done' : (task.inProgress ? ' in-progress-row' : '')) + '" style="position:relative;margin:0;border:none;padding:4px 0 4px ' + indent + 'px;cursor:pointer;display:flex;align-items:center;gap:6px" onclick="navigate(\'task-detail\',{id:' + task.id + '})">';
         if (hasChildren) html += chevron(taskOpen, taskKey);
         else html += '<span style="display:inline-block;width:18px;flex-shrink:0"></span>';
-        html += '<div class="todo-checkbox ' + (task.done ? 'checked' : '') + '" style="flex-shrink:0" onclick="event.stopPropagation();expandProjectTaskActions(this,' + task.id + ',' + task.done + ')">' + (task.done ? icons.check : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>') + '</div>';
+        html += '<div class="todo-checkbox ' + (task.done ? 'checked' : (task.inProgress ? 'in-progress' : '')) + '" style="flex-shrink:0" onclick="event.stopPropagation();expandProjectTaskActions(this,' + task.id + ',' + task.done + ')">' + _taskStateSvg(task, 16) + '</div>';
         html += '<div style="flex:1;min-width:0">';
         html += '<div class="todo-title">' + escapeHtml(task.title) + dueBadgeHtml(task) + '</div>';
         html += '</div></div>';
