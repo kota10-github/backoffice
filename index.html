@@ -921,6 +921,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
           タスク
         </button>
+        <button class="nav-item" data-page="gantt" onclick="navigate('gantt')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="3" rx="1"/><rect x="6" y="10" width="12" height="3" rx="1"/><rect x="4" y="15" width="8" height="3" rx="1"/></svg>
+          ガントチャート
+        </button>
         <button class="nav-item" data-page="manuals" onclick="navigate('manuals')">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           マニュアル
@@ -928,10 +932,6 @@
         <button class="nav-item nav-item-matrix" data-page="matrix" onclick="navigate('matrix')" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
           マトリックス
-        </button>
-        <button class="nav-item" data-page="gantt" onclick="navigate('gantt')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="3" rx="1"/><rect x="6" y="10" width="12" height="3" rx="1"/><rect x="4" y="15" width="8" height="3" rx="1"/></svg>
-          ガントチャート
         </button>
         <button class="nav-item" data-page="links" onclick="navigate('links')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -5308,26 +5308,43 @@
       var start = new Date(today); start.setDate(start.getDate() - _GANTT_DAYS_BEHIND);
       var totalDays = _GANTT_DAYS_BEHIND + _GANTT_DAYS_AHEAD;
 
-      // 表示対象: 親タスク (parentTaskId == null) で done=false。マップ順で並べる。
-      var tasks = (data.projectTasks || []).filter(function(t){
-        return t && !t._deleted && !t.done && t.parentTaskId == null;
+      // 表示対象: 全タスク (parentTaskId 含む) で done=false。
+      var allTasks = (data.projectTasks || []).filter(function(t){
+        return t && !t._deleted && !t.done;
       });
-      // どこかで dueDate の極端な値があれば totalDays を伸ばす
-      tasks.forEach(function(t){
+      // dueDate の極端な値があれば totalDays を伸ばす
+      allTasks.forEach(function(t){
         var due = _ganttParseYmd(t.dueDate);
         if (!due) return;
         var ahead = _ganttDaysBetween(today, due);
         if (ahead > _GANTT_DAYS_AHEAD) totalDays = _GANTT_DAYS_BEHIND + ahead + 3;
       });
       var mapIdx = _buildMatrixMapOrderIndex();
-      _matrixSortByMap(tasks, mapIdx);
+      // ツリー順に並べる: 親 → 子 → 孫 ... の DFS。各ノードに depth を付与。
+      var taskById = {};
+      allTasks.forEach(function(t){ taskById[t.id] = t; });
+      var childrenByParent = {};
+      allTasks.forEach(function(t){
+        var k = t.parentTaskId == null ? '__root__' : String(t.parentTaskId);
+        (childrenByParent[k] = childrenByParent[k] || []).push(t);
+      });
+      Object.keys(childrenByParent).forEach(function(k){
+        _matrixSortByMap(childrenByParent[k], mapIdx);
+      });
+      var tasks = [];
+      function dfsTask(node, depth){
+        node._ganttDepth = depth;
+        tasks.push(node);
+        (childrenByParent[String(node.id)] || []).forEach(function(c){ dfsTask(c, depth + 1); });
+      }
+      (childrenByParent['__root__'] || []).forEach(function(r){ dfsTask(r, 0); });
 
       var html = '<div class="page-header"><h1 class="page-title">ガントチャート</h1></div>';
       html += renderBreadcrumb();
-      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:12px">親タスクの進捗を可視化。<span style="color:#fb923c">■</span> 進行中　<span style="border:1.5px dashed #94a3b8;display:inline-block;width:10px;height:10px;vertical-align:middle"></span> 未着手 (期限あり)　縞模様 = 進行中で期限未設定。並び順はマップ準拠。</p>';
+      html += '<p class="text-sm" style="color:var(--fg-muted);margin-bottom:12px">全タスクの進捗を可視化 (親→子の階層で表示)。<span style="color:#fb923c">■</span> 進行中　<span style="border:1.5px dashed #94a3b8;display:inline-block;width:10px;height:10px;vertical-align:middle"></span> 未着手 (期限あり)　縞模様 = 進行中で期限未設定。並び順はマップ準拠。</p>';
 
       if (tasks.length === 0) {
-        html += '<div class="gantt-wrap"><div class="gantt-empty-msg">表示する親タスクがありません</div></div>';
+        html += '<div class="gantt-wrap"><div class="gantt-empty-msg">表示するタスクがありません</div></div>';
         el.innerHTML = html;
         return;
       }
@@ -5368,11 +5385,13 @@
         var pc = getProjectColor(t.projectId);
         var urgencyColor = qEff === 1 ? '#ef4444' : (qEff === 2 ? '#3b82f6' : pc.bg);
 
-        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + '">';
+        var depth = t._ganttDepth || 0;
+        var indentPx = depth * 14;
+        html += '<div class="gantt-row-left" onclick="navigate(\'task-detail\',{id:' + t.id + '})" title="' + escapeHtml(projPath) + '" style="border-left:4px solid ' + urgencyColor + ';padding-left:' + (10 + indentPx) + 'px">';
         // 状態チェックボックスは表示専用 (ガントチャート上では編集不可。タスク
         // 詳細やマップ・タスクタブで状態変更してね)。
         html += '<div class="todo-checkbox ' + (t.done ? 'checked' : (t.inProgress ? 'in-progress' : '')) + '" style="pointer-events:none">' + _taskStateSvg(t, 10) + '</div>';
-        html += '<span class="gantt-row-title">' + escapeHtml(t.title || '無題') + '</span>';
+        html += '<span class="gantt-row-title" style="' + (depth > 0 ? 'color:var(--fg-muted);font-size:12px' : '') + '">' + (depth > 0 ? '└ ' : '') + escapeHtml(t.title || '無題') + '</span>';
         if (due) html += '<span class="gantt-row-meta">~' + (due.getMonth()+1) + '/' + due.getDate() + '</span>';
         html += '</div>';
 
