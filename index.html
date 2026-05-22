@@ -5915,7 +5915,16 @@
         if (_looksLikeUrl(p.memo)) urls.push({ url: p.memo.trim(), text: p.memo.trim() });
         if (p.description) urls = urls.concat(_extractUrlsFromHtml(p.description));
         if (urls.length) {
-          groups.push({ kind: 'project', icon: icons.folder, name: p.name || '無題', urls: urls, onClick: 'navigate(\'project-detail\',{id:' + p.id + '})' });
+          // 親プロジェクト鎖をたどってルートからこの project の 1 つ上までを sub に。
+          // 自身の名前 (p.name) は name 側で大きく表示する。
+          var chain = [];
+          var cur = p.parentId != null ? (data.projects || []).find(function(x){ return x && x.id === p.parentId; }) : null;
+          var guard = 0;
+          while (cur && guard++ < 20) {
+            chain.unshift(cur.name || '');
+            cur = cur.parentId != null ? (data.projects || []).find(function(x){ return x && x.id === cur.parentId; }) : null;
+          }
+          groups.push({ kind: 'project', icon: icons.folder, name: p.name || '無題', sub: chain.join(' › '), urls: urls, onClick: 'navigate(\'project-detail\',{id:' + p.id + '})' });
         }
       });
 
@@ -5936,7 +5945,8 @@
         if (_looksLikeUrl(m.url)) urls.push({ url: m.url.trim(), text: m.url.trim() });
         if (m.taskRoadmap) urls = urls.concat(_extractUrlsFromHtml(m.taskRoadmap));
         if (urls.length) {
-          groups.push({ kind: 'manual', icon: icons.book, name: m.title || '無題', urls: urls });
+          var manProjPath = m.projectId != null ? _getProjectPathLabel(m.projectId) : '';
+          groups.push({ kind: 'manual', icon: icons.book, name: m.title || '無題', sub: manProjPath, urls: urls });
         }
       });
 
