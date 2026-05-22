@@ -6017,26 +6017,16 @@
           var href = u.url;
           if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
-          // 実タイトル (text) が URL と別物の時だけ表示。URL/ドメインしかない時は
-          // 上層 (ソース) ラベル自体を主役にする。
+          // 上流〜下流まで一行に: [プロジェクト名 › サブパス › タイトル]。
+          // 実タイトルが URL / ドメインだけなら最後の要素は省く。
           var hasTitle = u.text && u.text !== u.url && !/^https?:\/\//i.test(u.text);
-          var ancestor = g.sub ? (g.name + ' › ' + g.sub) : g.name;
+          var parts = [];
+          if (g.name) parts.push(g.name);
+          if (g.sub) parts.push(g.sub);
+          if (hasTitle) parts.push(u.text);
+          var path = parts.join(' › ');
           html += '<tr>';
-          html += '<td class="col-title">';
-          if (hasTitle) {
-            if (ancestor) {
-              if (g.onClick) {
-                html += '<div class="col-title-ancestor" onclick="' + g.onClick + '" style="cursor:pointer">' + escapeHtml(ancestor) + '</div>';
-              } else {
-                html += '<div class="col-title-ancestor">' + escapeHtml(ancestor) + '</div>';
-              }
-            }
-            html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(u.text) + '</a>';
-          } else {
-            // 上層ラベルをそのまま主役 (リンク化) に
-            html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(ancestor || u.url) + '</a>';
-          }
-          html += '</td>';
+          html += '<td class="col-title"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(path || u.url) + '</a></td>';
           html += '<td class="col-actions"><button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button></td>';
           html += '</tr>';
         });
