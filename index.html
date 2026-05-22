@@ -7692,13 +7692,33 @@
         if (!ts) return '不明';
         try { var d = new Date(ts > 1e12 ? ts : ts*1000); return d.toLocaleString('ja-JP'); } catch(e) { return '不明'; }
       };
+      // 自身を除く祖先プロジェクト名チェーンを root → 直近親 の順に返す
+      function _ancestorChain(pid){
+        var chain = [];
+        var cur = pid != null ? (data.projects || []).find(function(p){ return p && p.id === pid; }) : null;
+        var guard = 0;
+        while (cur && guard++ < 30) {
+          chain.unshift(cur.name || '');
+          cur = cur.parentId != null ? (data.projects || []).find(function(p){ return p && p.id === cur.parentId; }) : null;
+        }
+        return chain;
+      }
 
       var items = [];
-      (data.projects || []).forEach(function(p){ if (p && p._deleted) items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0 }); });
+      (data.projects || []).forEach(function(p){
+        if (!p || !p._deleted) return;
+        items.push({ kind:'projects', label:'プロジェクト', icon:icons.folder, name:p.name||'無題', item:p, ts:p._modTs||0, ancestor: _ancestorChain(p.parentId).join(' › ') });
+      });
       if (MANUALS_UI_ENABLED) {
-        (data.manuals || []).forEach(function(m){ if (m && m._deleted) items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0 }); });
+        (data.manuals || []).forEach(function(m){
+          if (!m || !m._deleted) return;
+          items.push({ kind:'manuals', label:'マニュアル', icon:icons.book, name:m.title||'無題', item:m, ts:m._modTs||0, ancestor: _ancestorChain(m.projectId).join(' › ') });
+        });
       }
-      (data.projectTasks || []).forEach(function(t){ if (t && t._deleted) items.push({ kind:'projectTasks', label:'タスク', icon:icons.target, name:t.title||'無題', item:t, ts:t._modTs||0 }); });
+      (data.projectTasks || []).forEach(function(t){
+        if (!t || !t._deleted) return;
+        items.push({ kind:'projectTasks', label:'タスク', icon:icons.target, name:t.title||'無題', item:t, ts:t._modTs||0, ancestor: _ancestorChain(t.projectId).join(' › ') });
+      });
 
       items.forEach(function(x){
         var pid = (x.kind === 'projects')
@@ -7709,11 +7729,7 @@
 
       var filtered = items.filter(function(x){
         if (!q) return true;
-        var hay = (x.name || '').toLowerCase();
-        var root = x.rootId != null ? (data.projects || []).find(function(p){ return p && p.id === x.rootId; }) : null;
-        if (root) hay += ' ' + (root.name || '').toLowerCase();
-        var ownerProj = (x.kind !== 'projects' && x.item.projectId != null) ? (data.projects || []).find(function(p){ return p && p.id === x.item.projectId; }) : null;
-        if (ownerProj) hay += ' ' + (ownerProj.name || '').toLowerCase();
+        var hay = ((x.name || '') + ' ' + (x.ancestor || '')).toLowerCase();
         return hay.indexOf(q) >= 0;
       });
 
@@ -7722,6 +7738,7 @@
         return;
       }
 
+      // rootId でグルーピング (タブ復元ボタン用)
       var groupsMap = {};
       var groupOrder = [];
       filtered.forEach(function(x){
@@ -7734,34 +7751,40 @@
         groupsMap[k].items.push(x);
       });
 
-      var html = '';
-      groupOrder.forEach(function(k){
-        var g = groupsMap[k];
-        var name = g.rootProj ? (g.rootProj.name || '無題') : '(タブ未設定)';
-        var tabDeleted = g.rootProj && g.rootProj._deleted;
-        var c = g.rootProj ? getProjectColor(g.rootProj.id) : { bg:'#94a3b8', light:'#f1f5f9', text:'#475569' };
-        html += '<div class="card mb-4">';
-        html += '<div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:' + c.light + ';border-left:4px solid ' + c.bg + '">';
-        html += '<div style="font-weight:600;color:' + c.text + ';font-size:13px">' + icons.folder + ' ' + escapeHtml(name) + (tabDeleted ? ' <span style="font-size:11px;color:var(--destructive);font-weight:500">[タブも削除済]</span>' : '') + ' <span class="text-xs" style="color:' + c.bg + ';margin-left:6px">' + g.items.length + '件</span></div>';
-        html += '<button class="btn btn-outline btn-sm" onclick="restoreTabGroup(' + (g.rootId == null ? 'null' : g.rootId) + ')">このタブを復元</button>';
-        html += '</div>';
-        html += '<div class="card-body" style="display:flex;flex-direction:column;gap:4px">';
-        g.items.sort(function(a,b){ return b.ts - a.ts; });
-        g.items.forEach(function(x){
-          var par = null;
-          if (x.kind === 'manuals' || x.kind === 'projectTasks') {
-            par = (data.projects || []).find(function(p){ return p.id === x.item.projectId; });
-          } else if (x.kind === 'projects' && x.item.parentId != null) {
-            par = (data.projects || []).find(function(p){ return p.id === x.item.parentId; });
+      // リンクタブと同じテーブル形式で描画 (見出し行 + ガント風 2 段組タイトル)
+      var html = '<div class="links-table-wrap"><div style="overflow-x:auto"><table class="links-table"><thead><tr>';
+      html += '<th>タイトル</th>';
+      html += '<th>削除日時</th>';
+      html += '<th></th>';
+      html += '</tr></thead><tbody>';
+      groupOrder.forEach(function(gk){
+        var grp = groupsMap[gk];
+        var rootName = grp.rootProj ? (grp.rootProj.name || '無題') : '(タブ未設定)';
+        var tabDel = grp.rootProj && grp.rootProj._deleted;
+        // セクション見出し行
+        html += '<tr class="links-section-row"><td colspan="3">';
+        html += '<span style="display:inline-flex;align-items:center;gap:6px">';
+        html += '<span style="color:var(--fg-muted2)">' + icons.folder + '</span>';
+        html += '<span>' + escapeHtml(rootName) + '</span>';
+        if (tabDel) html += '<span style="font-size:11px;color:var(--destructive);font-weight:500">[タブも削除済]</span>';
+        html += '<span class="src-count">' + grp.items.length + '件</span>';
+        html += '<button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:11px;padding:3px 10px" onclick="restoreTabGroup(' + (grp.rootId == null ? 'null' : grp.rootId) + ')">このタブを復元</button>';
+        html += '</span></td></tr>';
+        grp.items.sort(function(a,b){ return b.ts - a.ts; });
+        grp.items.forEach(function(x){
+          html += '<tr>';
+          html += '<td class="col-title">';
+          if (x.ancestor) {
+            html += '<div class="col-title-ancestor">' + escapeHtml(x.ancestor) + '</div>';
           }
-          var parentLabel = par ? '（' + escapeHtml(par.name || '') + (par._deleted ? ' [削除済]' : '') + '）' : '';
-          html += '<div class="user-row"><div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1"><span style="color:var(--fg-muted);flex-shrink:0">' + x.icon + '</span>'
-               + '<div style="min-width:0;flex:1"><p style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(x.name) + ' <span style="font-size:11px;color:var(--fg-muted2);font-weight:400">' + parentLabel + '</span></p>'
-               + '<p class="text-xs" style="color:var(--fg-muted);margin-top:2px">' + x.label + ' / ' + fmtTs(x.ts) + '</p></div></div>'
-               + '<div class="user-actions"><button class="btn btn-outline btn-sm" onclick="restoreFromTrash(\'' + x.kind + '\',' + x.item.id + ')">復元</button></div></div>';
+          html += '<span class="col-title-main">' + escapeHtml(x.name) + ' <span style="font-size:10px;color:var(--fg-muted2);font-weight:500;margin-left:4px">[' + x.label + ']</span></span>';
+          html += '</td>';
+          html += '<td style="font-size:11px;color:var(--fg-muted);white-space:nowrap">' + fmtTs(x.ts) + '</td>';
+          html += '<td class="col-actions"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="restoreFromTrash(\'' + x.kind + '\',' + x.item.id + ')">復元</button></td>';
+          html += '</tr>';
         });
-        html += '</div></div>';
       });
+      html += '</tbody></table></div></div>';
       body.innerHTML = html;
     }
 
