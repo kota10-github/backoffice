@@ -3875,6 +3875,7 @@
       html += `<button class="back-float" onclick="${backAction}">${icons.arrowLeft} ${backLabel}</button>`;
       html += `<div class="manual-actions-float no-print" style="position:fixed;top:16px;right:16px;z-index:50;display:flex;gap:8px;flex-wrap:wrap">
         ${MANUALS_UI_ENABLED ? `<button class="btn btn-primary btn-sm" onclick="navigate('manual-form',{projectId:${project.id}})">${icons.plus} マニュアル作成</button>` : ''}
+        ${project.parentId != null ? `<button class="btn btn-outline btn-sm" onclick="confirmConvertProjectToTask(${project.id})">✓ タスクに変換</button>` : ''}
         <button class="btn btn-outline btn-sm" style="color:var(--destructive);border-color:var(--destructive)" onclick="confirmDeleteProject(${project.id})">${icons.trash} 削除</button>
       </div>`;
       html += `<div class="doc-layout">`;
