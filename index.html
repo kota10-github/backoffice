@@ -6016,22 +6016,26 @@
         sec.urls.forEach(function(u){
           var href = u.url;
           if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
-          var host = '';
-          try { host = new URL(href).hostname.replace(/^www\./, ''); } catch(e) { host = u.url; }
-          var displayText = u.text && u.text !== u.url ? u.text : host;
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
-          // 上層 (ソース) ラベル: グループ名 + sub (親パス) を結合
+          // 実タイトル (text) が URL と別物の時だけ表示。URL/ドメインしかない時は
+          // 上層 (ソース) ラベル自体を主役にする。
+          var hasTitle = u.text && u.text !== u.url && !/^https?:\/\//i.test(u.text);
           var ancestor = g.sub ? (g.name + ' › ' + g.sub) : g.name;
           html += '<tr>';
           html += '<td class="col-title">';
-          if (ancestor) {
-            if (g.onClick) {
-              html += '<div class="col-title-ancestor" onclick="' + g.onClick + '" style="cursor:pointer">' + escapeHtml(ancestor) + '</div>';
-            } else {
-              html += '<div class="col-title-ancestor">' + escapeHtml(ancestor) + '</div>';
+          if (hasTitle) {
+            if (ancestor) {
+              if (g.onClick) {
+                html += '<div class="col-title-ancestor" onclick="' + g.onClick + '" style="cursor:pointer">' + escapeHtml(ancestor) + '</div>';
+              } else {
+                html += '<div class="col-title-ancestor">' + escapeHtml(ancestor) + '</div>';
+              }
             }
+            html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(u.text) + '</a>';
+          } else {
+            // 上層ラベルをそのまま主役 (リンク化) に
+            html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(ancestor || u.url) + '</a>';
           }
-          html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(displayText) + '</a>';
           html += '</td>';
           html += '<td class="col-actions"><button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button></td>';
           html += '</tr>';
