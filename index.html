@@ -5997,13 +5997,12 @@
       }
       var html = '<div class="links-table-wrap"><div style="overflow-x:auto"><table class="links-table"><thead><tr>';
       html += '<th>タイトル</th>';
-      html += '<th>URL</th>';
       html += '<th></th>';
       html += '</tr></thead><tbody>';
       sections.forEach(function(sec){
         var g = sec.g;
         // セクション見出し行
-        html += '<tr class="links-section-row"><td colspan="3">';
+        html += '<tr class="links-section-row"><td colspan="2">';
         html += '<span style="display:inline-flex;align-items:center;gap:6px">';
         html += '<span style="color:var(--fg-muted2)">' + g.icon + '</span>';
         if (g.onClick) {
@@ -6034,7 +6033,6 @@
           }
           html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(displayText) + '</a>';
           html += '</td>';
-          html += '<td class="col-url"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(u.url) + '</a></td>';
           html += '<td class="col-actions"><button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button></td>';
           html += '</tr>';
         });
