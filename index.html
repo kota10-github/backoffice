@@ -6001,32 +6001,36 @@
       html += '</tr></thead><tbody>';
       sections.forEach(function(sec){
         var g = sec.g;
-        // セクション見出し行
-        html += '<tr class="links-section-row"><td colspan="2">';
-        html += '<span style="display:inline-flex;align-items:center;gap:6px">';
-        html += '<span style="color:var(--fg-muted2)">' + g.icon + '</span>';
-        if (g.onClick) {
-          html += '<span style="cursor:pointer" onclick="' + g.onClick + '">' + escapeHtml(g.name) + '</span>';
-        } else {
-          html += '<span>' + escapeHtml(g.name) + '</span>';
-        }
-        if (g.sub) html += '<span style="font-weight:500;color:var(--fg-muted2);font-size:11px">— ' + escapeHtml(g.sub) + '</span>';
-        html += '<span class="src-count">' + sec.urls.length + '</span>';
-        html += '</span></td></tr>';
         sec.urls.forEach(function(u){
           var href = u.url;
           if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
-          // 上流〜下流まで一行に: [サブパス › タイトル]。セクション見出しが
-          // すでにグループ名 (g.name) を表示しているので、行内では繰り返さない。
-          // 実タイトルが URL / ドメインだけなら最後の要素は省く。
+          // Gantt 風: 該当タブのタイトルを一番大きく、上層は小さく。
+          // 優先度: 「リンクの実タイトル」があればそれを大、無ければ g.name を大。
+          // 上層 (ancestor) はそれより上の階層全部を結合した小ラベル。
           var hasTitle = u.text && u.text !== u.url && !/^https?:\/\//i.test(u.text);
-          var parts = [];
-          if (g.sub) parts.push(g.sub);
-          if (hasTitle) parts.push(u.text);
-          var path = parts.join(' › ');
+          var bigText, ancestorParts;
+          if (hasTitle) {
+            bigText = u.text;
+            ancestorParts = [];
+            if (g.name) ancestorParts.push(g.name);
+            if (g.sub) ancestorParts.push(g.sub);
+          } else {
+            bigText = g.name || u.url;
+            ancestorParts = g.sub ? [g.sub] : [];
+          }
+          var ancestor = ancestorParts.join(' › ');
           html += '<tr>';
-          html += '<td class="col-title"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(path || u.url) + '</a></td>';
+          html += '<td class="col-title">';
+          if (ancestor) {
+            if (g.onClick) {
+              html += '<div class="col-title-ancestor" onclick="' + g.onClick + '" style="cursor:pointer">' + escapeHtml(ancestor) + '</div>';
+            } else {
+              html += '<div class="col-title-ancestor">' + escapeHtml(ancestor) + '</div>';
+            }
+          }
+          html += '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '" class="col-title-main">' + escapeHtml(bigText) + '</a>';
+          html += '</td>';
           html += '<td class="col-actions"><button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button></td>';
           html += '</tr>';
         });
