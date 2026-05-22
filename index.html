@@ -70,10 +70,9 @@
       .links-table .col-host,.links-table .col-source{display:none}
       .links-table .col-title{max-width:none}
     }
-    /* タスク詳細 関連リンクの OGP プレビューカード */
-    .url-preview-card{border:1px solid var(--border-light);border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .2s,transform .15s}
-    .url-preview-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-1px)}
-    @media(max-width:600px){.url-preview-card a{flex-direction:column!important}.url-preview-card a > div:first-child{width:100%!important;min-height:140px!important}}
+    /* タスク詳細 関連リンクの OGP プレビューカード — 大画面 + シンプル */
+    .url-preview-card{border:1px solid var(--border-light);border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.05);transition:box-shadow .2s,transform .15s;max-width:720px}
+    .url-preview-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.1);transform:translateY(-1px)}
     .sidebar-share-link{display:flex;align-items:center;gap:6px;margin:8px 12px 4px;padding:6px 10px;border-radius:6px;background:transparent;border:1px dashed var(--border);color:var(--fg-muted2);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;width:calc(100% - 24px);text-align:left}
     .sidebar-share-link svg{width:13px;height:13px;flex-shrink:0;opacity:.7}
     .sidebar-share-link:hover{background:var(--bg-muted);border-color:var(--primary);color:var(--primary)}
@@ -4159,34 +4158,22 @@
     function _renderUrlPreviewCard(container, url, data) {
       var img = data.image && data.image.url;
       var title = data.title || url;
-      var desc = data.description || '';
-      var publisher = data.publisher || '';
       var html = '';
-      html += '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="display:flex;text-decoration:none;color:inherit;font-family:\'Noto Sans JP\',sans-serif">';
+      html += '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit;font-family:\'Noto Sans JP\',sans-serif">';
       if (img) {
-        html += '<div style="width:200px;flex-shrink:0;background:#f3f4f6;background-image:url(' + escapeHtml(img) + ');background-size:cover;background-position:center;min-height:160px"></div>';
+        html += '<div style="width:100%;aspect-ratio:16/9;background:#f3f4f6 url(' + escapeHtml(img) + ') center/cover no-repeat;border-radius:10px 10px 0 0"></div>';
       }
-      html += '<div style="flex:1;min-width:0;padding:18px 20px">';
-      if (publisher) html += '<div style="font-size:11px;color:var(--fg-muted2);text-transform:uppercase;letter-spacing:.05em">' + escapeHtml(publisher) + '</div>';
-      html += '<div style="font-size:16px;font-weight:600;margin-top:4px;line-height:1.4;color:var(--fg)">' + escapeHtml(title) + '</div>';
-      if (desc) html += '<p style="font-size:13px;color:var(--fg-muted);margin-top:8px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">' + escapeHtml(desc) + '</p>';
-      html += '<div style="font-size:11px;color:var(--fg-muted2);margin-top:10px;word-break:break-all">' + escapeHtml(url) + '</div>';
-      html += '</div></a>';
+      html += '<div style="padding:16px 20px"><div style="font-size:17px;font-weight:600;line-height:1.45;color:var(--fg)">' + escapeHtml(title) + '</div></div>';
+      html += '</a>';
       container.innerHTML = html;
     }
     function _renderUrlPreviewFallback(container, url) {
       var domain = '';
-      try { domain = new URL(url).hostname; } catch(e) {}
+      try { domain = new URL(url).hostname.replace(/^www\./,''); } catch(e) {}
       var html = '';
-      html += '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="display:flex;text-decoration:none;color:inherit;padding:18px 20px;align-items:center;gap:14px;font-family:\'Noto Sans JP\',sans-serif">';
-      if (domain) {
-        html += '<img src="https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=64" width="40" height="40" style="border-radius:8px;flex-shrink:0;background:#f3f4f6">';
-      }
-      html += '<div style="flex:1;min-width:0">';
-      html += '<div style="font-size:14px;font-weight:600;color:var(--fg)">' + escapeHtml(domain || url) + '</div>';
-      html += '<div style="font-size:11px;color:var(--fg-muted2);margin-top:4px;word-break:break-all">' + escapeHtml(url) + '</div>';
-      html += '<div style="font-size:11px;color:var(--fg-muted2);margin-top:6px;font-style:italic">プレビューを取得できなかったため、上のリンクから直接開いてください。</div>';
-      html += '</div></a>';
+      html += '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit;padding:24px;text-align:center;font-family:\'Noto Sans JP\',sans-serif">';
+      html += '<div style="font-size:17px;font-weight:600;color:var(--fg)">' + escapeHtml(domain || url) + '</div>';
+      html += '</a>';
       container.innerHTML = html;
     }
     window.loadUrlPreview = loadUrlPreview;
