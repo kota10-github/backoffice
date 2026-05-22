@@ -40,33 +40,38 @@
     .sidebar-nav{padding:8px}
     .sidebar-section-label{font-size:11px;font-weight:600;color:var(--fg-muted2);text-transform:uppercase;letter-spacing:0.05em;padding:16px 12px 8px}
     .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);font-size:13px;font-weight:500;color:var(--fg-muted);transition:all .15s;width:100%;text-align:left}
-    /* リンクタブ: ブックマークカード風 (favicon + タイトル + 出典ピル) */
-    .links-group{margin-bottom:24px}
-    .links-group-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-light)}
-    .links-group-head .links-group-icon{color:var(--fg-muted2);display:inline-flex;align-self:center}
-    .links-group-head .links-group-icon svg{width:14px;height:14px}
-    .links-group-name{font-weight:700;font-size:14px;color:var(--fg);letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-    .links-group-name[onclick]{cursor:pointer;transition:color .12s}
-    .links-group-name[onclick]:hover{color:var(--primary)}
-    .links-group-sub{font-size:11px;color:var(--fg-muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .links-group-count{margin-left:auto;font-size:10px;color:var(--fg-muted);font-weight:600;padding:2px 8px;background:var(--bg-muted);border-radius:999px;letter-spacing:.04em}
-    .links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-    .links-chip{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border-light);border-radius:10px;background:linear-gradient(180deg,#fff 0%,#fafbfc 100%);transition:transform .15s cubic-bezier(.2,.8,.2,1),box-shadow .2s,border-color .15s;min-width:0;text-decoration:none;color:inherit;position:relative;overflow:hidden}
-    .links-chip::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--primary);opacity:0;transition:opacity .15s}
-    .links-chip:hover{border-color:rgba(37,99,235,.35);box-shadow:0 4px 16px rgba(15,23,42,.08);transform:translateY(-1px)}
-    .links-chip:hover::before{opacity:1}
-    .links-favicon{flex-shrink:0;width:32px;height:32px;border-radius:8px;background:#fff;border:1px solid var(--border-light);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-    .links-favicon img{width:18px;height:18px;object-fit:contain;display:block}
-    .links-favicon .links-favicon-fallback{font-size:14px;font-weight:700;color:var(--fg-muted)}
-    .links-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;line-height:1.3;overflow:hidden}
-    .links-title{font-size:13px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.005em}
-    .links-host{font-size:10.5px;color:var(--fg-muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;letter-spacing:.02em}
-    .links-copy{flex-shrink:0;width:28px;height:28px;border-radius:6px;background:transparent;border:none;color:var(--fg-muted2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;opacity:0}
-    .links-copy svg{width:14px;height:14px}
-    .links-copy:hover{background:var(--bg-muted);color:var(--primary)}
-    .links-chip:hover .links-copy{opacity:.85}
-    @media(hover:none){.links-copy{opacity:.55}}
-    @media(max-width:600px){.links-grid{grid-template-columns:1fr}}
+    /* リンクタブ: 表形式 */
+    .links-table{width:100%;border-collapse:collapse;font-size:13px}
+    .links-table thead th{position:sticky;top:0;background:var(--bg-muted);color:var(--fg-muted);font-size:11px;font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);letter-spacing:.04em;text-transform:uppercase;z-index:1}
+    .links-table tbody tr{border-bottom:1px solid var(--border-light);transition:background .12s}
+    .links-table tbody tr:hover{background:var(--bg-muted)}
+    .links-table td{padding:8px 10px;vertical-align:middle}
+    .links-table .col-icon{width:32px;padding-right:0}
+    .links-table .col-title{font-weight:600;color:var(--fg);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .links-table .col-host{color:var(--fg-muted);font-size:11.5px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .links-table .col-source{color:var(--fg-muted2);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+    .links-table .col-source:hover{color:var(--primary)}
+    .links-table .col-actions{width:60px;text-align:right}
+    .links-favicon-sm{width:20px;height:20px;border-radius:4px;background:#fff;border:1px solid var(--border-light);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+    .links-favicon-sm img{width:14px;height:14px;object-fit:contain}
+    .links-favicon-sm .links-favicon-fallback{font-size:11px;font-weight:700;color:var(--fg-muted)}
+    .links-table a{color:inherit;text-decoration:none}
+    .links-table a:hover .col-title{color:var(--primary)}
+    .links-row-link{display:contents}
+    .links-table .links-copy{width:24px;height:24px;border-radius:4px;background:transparent;border:none;color:var(--fg-muted2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;opacity:.5}
+    .links-table .links-copy svg{width:13px;height:13px}
+    .links-table .links-copy:hover{background:var(--border-light);color:var(--primary);opacity:1}
+    .links-table tbody tr:hover .links-copy{opacity:1}
+    .links-section-row td{padding:14px 10px 4px;font-weight:700;font-size:13px;color:var(--fg);background:#fff;border-bottom:0;letter-spacing:.005em}
+    .links-section-row td .src-count{font-size:10px;color:var(--fg-muted);font-weight:600;padding:2px 8px;background:var(--bg-muted);border-radius:999px;margin-left:8px;letter-spacing:.04em}
+    @media(max-width:600px){
+      .links-table .col-host,.links-table .col-source{display:none}
+      .links-table .col-title{max-width:none}
+    }
+    /* タスク詳細 関連リンクの OGP プレビューカード */
+    .url-preview-card{border:1px solid var(--border-light);border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .2s,transform .15s}
+    .url-preview-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-1px)}
+    @media(max-width:600px){.url-preview-card a{flex-direction:column!important}.url-preview-card a > div:first-child{width:100%!important;min-height:140px!important}}
     .sidebar-share-link{display:flex;align-items:center;gap:6px;margin:8px 12px 4px;padding:6px 10px;border-radius:6px;background:transparent;border:1px dashed var(--border);color:var(--fg-muted2);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;width:calc(100% - 24px);text-align:left}
     .sidebar-share-link svg{width:13px;height:13px;flex-shrink:0;opacity:.7}
     .sidebar-share-link:hover{background:var(--bg-muted);border-color:var(--primary);color:var(--primary)}
@@ -5972,7 +5977,8 @@
       var body = document.getElementById('links-body');
       if (!body) return;
       var groups = window._linksGroups || [];
-      var html = '';
+      // visibleUrls を持つグループだけ集める
+      var sections = [];
       groups.forEach(function(g){
         var visibleUrls = g.urls;
         if (q) {
@@ -5983,21 +5989,34 @@
                    (g.sub || '').toLowerCase().indexOf(q) >= 0;
           });
         }
-        if (!visibleUrls.length) return;
-        // ソース 1 件分: チップグリッド
-        html += '<div class="links-group">';
-        html += '<div class="links-group-head">';
-        html += '<span class="links-group-icon">' + g.icon + '</span>';
+        if (visibleUrls.length) sections.push({ g: g, urls: visibleUrls });
+      });
+      if (!sections.length) {
+        body.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;color:var(--fg-muted)">該当するリンクがありません</div></div>';
+        return;
+      }
+      var html = '<div style="overflow-x:auto"><table class="links-table"><thead><tr>';
+      html += '<th></th>';
+      html += '<th>タイトル</th>';
+      html += '<th>ドメイン</th>';
+      html += '<th>ソース</th>';
+      html += '<th></th>';
+      html += '</tr></thead><tbody>';
+      sections.forEach(function(sec){
+        var g = sec.g;
+        // セクション見出し行
+        html += '<tr class="links-section-row"><td colspan="5">';
+        html += '<span style="display:inline-flex;align-items:center;gap:6px">';
+        html += '<span style="color:var(--fg-muted2)">' + g.icon + '</span>';
         if (g.onClick) {
-          html += '<span class="links-group-name" onclick="' + g.onClick + '" style="cursor:pointer">' + escapeHtml(g.name) + '</span>';
+          html += '<span style="cursor:pointer" onclick="' + g.onClick + '">' + escapeHtml(g.name) + '</span>';
         } else {
-          html += '<span class="links-group-name">' + escapeHtml(g.name) + '</span>';
+          html += '<span>' + escapeHtml(g.name) + '</span>';
         }
-        if (g.sub) html += '<span class="links-group-sub">— ' + escapeHtml(g.sub) + '</span>';
-        html += '<span class="links-group-count">' + visibleUrls.length + '</span>';
-        html += '</div>';
-        html += '<div class="links-grid">';
-        visibleUrls.forEach(function(u){
+        if (g.sub) html += '<span style="font-weight:500;color:var(--fg-muted2);font-size:11px">— ' + escapeHtml(g.sub) + '</span>';
+        html += '<span class="src-count">' + sec.urls.length + '</span>';
+        html += '</span></td></tr>';
+        sec.urls.forEach(function(u){
           var href = u.url;
           if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
           var host = '';
@@ -6006,15 +6025,20 @@
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
           var fav = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=32';
           var fallback = (host || '?').charAt(0).toUpperCase();
-          html += '<a class="links-chip" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '">';
-          html += '<span class="links-favicon"><img src="' + escapeHtml(fav) + '" loading="lazy" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline-flex\'"><span class="links-favicon-fallback" style="display:none">' + escapeHtml(fallback) + '</span></span>';
-          html += '<span class="links-meta"><span class="links-title">' + escapeHtml(displayText) + '</span><span class="links-host">' + escapeHtml(host) + '</span></span>';
-          html += '<button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button>';
-          html += '</a>';
+          html += '<tr>';
+          html += '<td class="col-icon"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '"><span class="links-favicon-sm"><img src="' + escapeHtml(fav) + '" loading="lazy" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline-flex\'"><span class="links-favicon-fallback" style="display:none">' + escapeHtml(fallback) + '</span></span></a></td>';
+          html += '<td class="col-title"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '">' + escapeHtml(displayText) + '</a></td>';
+          html += '<td class="col-host"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(host) + '</a></td>';
+          if (g.onClick) {
+            html += '<td class="col-source" onclick="' + g.onClick + '" title="ソースを開く">' + escapeHtml(g.name) + '</td>';
+          } else {
+            html += '<td class="col-source">' + escapeHtml(g.name) + '</td>';
+          }
+          html += '<td class="col-actions"><button class="links-copy" title="コピー" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(\'' + copyArg + '\');toast(\'コピーしました\')">' + icons.copy + '</button></td>';
+          html += '</tr>';
         });
-        html += '</div></div>';
       });
-      if (!html) html = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;color:var(--fg-muted)">該当するリンクがありません</div></div>';
+      html += '</tbody></table></div>';
       body.innerHTML = html;
     }
 
@@ -8826,7 +8850,11 @@
       var raw = inp.value.trim();
       if (!raw) { prev.innerHTML = '<span style="color:var(--fg-muted2)">URL を入力するとプレビューがここに出ます</span>'; return; }
       var url = _normalizeMemoUrl(raw);
-      prev.innerHTML = '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;word-break:break-all">' + escapeHtml(url) + '</a>';
+      // microlink で取得できる OGP プレビューを表示。ダメなら favicon フォール
+      // バックに自動切替。loadUrlPreview がカード描画まで担当する。
+      prev.innerHTML = '<div class="url-preview-card" data-url="' + escapeHtml(url) + '"></div>';
+      var container = prev.querySelector('.url-preview-card');
+      if (container && typeof loadUrlPreview === 'function') loadUrlPreview(container);
     }
     function autoSaveMemoUrl(kind, id, isBlur) {
       var inp = document.getElementById('memo-url-input');
