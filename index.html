@@ -165,7 +165,9 @@
     .readonly-mode .map-add-plus,
     .readonly-mode .sub-add-plus,
     .readonly-mode .card-delete-btn,
-    .readonly-mode [data-page="trash"]{display:none!important}
+    .readonly-mode [data-page="trash"],
+    .readonly-mode .sidebar-section-label,
+    .readonly-mode .nav-item[onclick*="copyReadonlyLink"]{display:none!important}
     .readonly-mode .todo-checkbox{pointer-events:none!important}
     .readonly-mode [contenteditable="true"]{pointer-events:none}
     .readonly-mode .editable-title,
@@ -2237,7 +2239,9 @@
         case 'tags': navigate('home'); return;
         case 'work-mgmt': navigate('home'); return;
         case 'permissions': navigate('home'); return;
-        case 'trash': renderTrash(main); break;
+        case 'trash':
+          if (READ_ONLY) { navigate('home'); return; }
+          renderTrash(main); break;
         case 'gantt': renderGantt(main); break;
         case 'links': renderLinks(main); break;
         case 'member-page': renderMemberPage(main); break;
