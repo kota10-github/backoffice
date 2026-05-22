@@ -6017,11 +6017,11 @@
           var href = u.url;
           if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
-          // 上流〜下流まで一行に: [プロジェクト名 › サブパス › タイトル]。
+          // 上流〜下流まで一行に: [サブパス › タイトル]。セクション見出しが
+          // すでにグループ名 (g.name) を表示しているので、行内では繰り返さない。
           // 実タイトルが URL / ドメインだけなら最後の要素は省く。
           var hasTitle = u.text && u.text !== u.url && !/^https?:\/\//i.test(u.text);
           var parts = [];
-          if (g.name) parts.push(g.name);
           if (g.sub) parts.push(g.sub);
           if (hasTitle) parts.push(u.text);
           var path = parts.join(' › ');
