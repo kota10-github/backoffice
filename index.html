@@ -180,6 +180,11 @@
     .readonly-mode .main-area button:not(.back-float){pointer-events:none!important;opacity:.45!important;filter:grayscale(.4)}
     .readonly-mode .main-area button[onclick*="navigate"],
     .readonly-mode .main-area button.back-float{pointer-events:auto!important;opacity:1!important;filter:none!important}
+    /* マップの折りたたみトグル (▼/▶) は閲覧モードでも操作可能 */
+    .readonly-mode .map-collapse-toggle,
+    .readonly-mode .tree-chev{pointer-events:auto!important;opacity:1!important;filter:none!important}
+    /* タスク詳細の Q1/Q2 マトリックスボタンは見た目はそのまま、クリックだけ不能 */
+    .readonly-mode .main-area button[onclick*="setTaskMatrixQ"]{opacity:1!important;filter:none!important}
     /* 閲覧モードでは draggable=true な要素のドラッグを抑止 (Chrome/Safari) */
     .readonly-mode [draggable="true"]{-webkit-user-drag:none}
     .readonly-mode .matrix-task{cursor:pointer}
