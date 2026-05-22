@@ -5992,7 +5992,6 @@
         return _LINK_AVATAR_PALETTE[Math.abs(h) % _LINK_AVATAR_PALETTE.length];
       }
       var html = '<div class="links-table-wrap"><div style="overflow-x:auto"><table class="links-table"><thead><tr>';
-      html += '<th></th>';
       html += '<th>タイトル</th>';
       html += '<th>ドメイン</th>';
       html += '<th>ソース</th>';
@@ -6001,7 +6000,7 @@
       sections.forEach(function(sec){
         var g = sec.g;
         // セクション見出し行
-        html += '<tr class="links-section-row"><td colspan="5">';
+        html += '<tr class="links-section-row"><td colspan="4">';
         html += '<span style="display:inline-flex;align-items:center;gap:6px">';
         html += '<span style="color:var(--fg-muted2)">' + g.icon + '</span>';
         if (g.onClick) {
@@ -6019,10 +6018,7 @@
           try { host = new URL(href).hostname.replace(/^www\./, ''); } catch(e) { host = u.url; }
           var displayText = u.text && u.text !== u.url ? u.text : host;
           var copyArg = escapeHtml(u.url).replace(/'/g, "\\'");
-          var letter = (host || u.url || '?').replace(/^https?:\/\//,'').charAt(0).toUpperCase();
-          var avColor = _linkAvatarColor(host || u.url || '?');
           html += '<tr>';
-          html += '<td class="col-icon"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '"><span class="links-avatar" style="background:' + avColor + '">' + escapeHtml(letter) + '</span></a></td>';
           html += '<td class="col-title"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(u.url) + '">' + escapeHtml(displayText) + '</a></td>';
           html += '<td class="col-host"><a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(host) + '</a></td>';
           if (g.onClick) {
