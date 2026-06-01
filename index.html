@@ -3417,6 +3417,43 @@
         viewport.addEventListener('mouseleave', function() { isDragging = false; viewport.style.cursor = 'grab'; });
         viewport.addEventListener('mouseup', function() { isDragging = false; viewport.style.cursor = 'grab'; });
         viewport.addEventListener('mousemove', function(e) { if (!isDragging) return; e.preventDefault(); viewport.scrollLeft = scrollLeft - (e.pageX - viewport.offsetLeft - startX); viewport.scrollTop = scrollTop - (e.pageY - viewport.offsetTop - startY); });
+        // Trackpad pinch-zoom (also Ctrl/Cmd+wheel). On macOS, a pinch on the
+        // trackpad fires wheel events with ctrlKey=true. Keeps the point
+        // under the cursor anchored while zooming, and skips the CSS
+        // transition so it feels responsive.
+        var _mapWheelRAF = null;
+        viewport.addEventListener('wheel', function(e) {
+          if (!(e.ctrlKey || e.metaKey)) return; // plain scroll → default pan
+          e.preventDefault();
+          var rect = viewport.getBoundingClientRect();
+          var cx = e.clientX - rect.left;
+          var cy = e.clientY - rect.top;
+          var oldZoom = mapZoom;
+          // deltaY is positive when pinching out (zoom out in macOS).
+          var newZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, oldZoom * Math.exp(-e.deltaY * 0.01)));
+          if (Math.abs(newZoom - oldZoom) < 1e-4) return;
+          var inner = document.getElementById('mindmap-inner');
+          var svgEl = document.getElementById('mindmap-svg');
+          var prevTrans = inner ? inner.style.transition : '';
+          if (inner) inner.style.transition = 'none';
+          if (svgEl) svgEl.style.transition = 'none';
+          // Content point under the cursor (in unzoomed coords).
+          var px = (cx + viewport.scrollLeft) / oldZoom;
+          var py = (cy + viewport.scrollTop) / oldZoom;
+          setMapZoom(newZoom);
+          // Re-anchor scroll so that the same content point stays under cursor.
+          viewport.scrollLeft = px * newZoom - cx;
+          viewport.scrollTop  = py * newZoom - cy;
+          // Restore transition on next frame and redraw the SVG link layer
+          // (debounced so rapid wheel events don't redraw on every tick).
+          if (_mapWheelRAF) cancelAnimationFrame(_mapWheelRAF);
+          _mapWheelRAF = requestAnimationFrame(function() {
+            _mapWheelRAF = null;
+            if (inner) inner.style.transition = prevTrans;
+            if (svgEl) svgEl.style.transition = '';
+            try { if (typeof drawMindmapLines === 'function') drawMindmapLines(projects); } catch(_e) {}
+          });
+        }, { passive: false });
         requestAnimationFrame(() => requestAnimationFrame(() => {
           drawMindmapLines(projects);
           applyMapSearchHighlight();
