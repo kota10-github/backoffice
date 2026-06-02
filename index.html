@@ -5740,9 +5740,10 @@
       var start = new Date(today); start.setDate(start.getDate() - _GANTT_DAYS_BEHIND);
       var totalDays = _GANTT_DAYS_BEHIND + _GANTT_DAYS_AHEAD;
 
-      // 表示対象: 全タスク (parentTaskId 含む) で done=false。
+      // 表示対象: 末端タスク (子タスクを持たない) のうち done=false のみ。
+      // 親タスクは子の状態から自動完了するので、ガントには出さない。
       var allTasks = (data.projectTasks || []).filter(function(t){
-        return t && !t._deleted && !t.done;
+        return t && !t._deleted && !t.done && _isLeafProjectTask(t);
       });
       // dueDate の極端な値があれば totalDays を伸ばす
       allTasks.forEach(function(t){
@@ -7270,6 +7271,46 @@
         }}
       ]);
     }
+    // Returns true if `t` has no live (non-deleted) child tasks.
+    function _isLeafProjectTask(t) {
+      if (!t) return false;
+      var tasks = data.projectTasks || [];
+      for (var i = 0; i < tasks.length; i++) {
+        var c = tasks[i];
+        if (c && !c._deleted && c.parentTaskId === t.id) return false;
+      }
+      return true;
+    }
+    // Walk up the parent chain; auto-mark a parent done iff ALL of its live
+    // children are done. Also un-do a parent when a child gets un-done, so the
+    // status stays consistent with what the user sees in the tree.
+    function _propagateParentDone(taskId) {
+      var tasks = data.projectTasks || [];
+      var byId = {};
+      tasks.forEach(function(t){ if (t && !t._deleted) byId[t.id] = t; });
+      var cur = byId[taskId];
+      var guard = 0;
+      while (cur && cur.parentTaskId != null && guard++ < 50) {
+        var parent = byId[cur.parentTaskId];
+        if (!parent) break;
+        var children = tasks.filter(function(t){ return t && !t._deleted && t.parentTaskId === parent.id; });
+        if (children.length === 0) break;
+        var allDone = children.every(function(t){ return t.done; });
+        if (allDone && !parent.done) {
+          parent.done = true;
+          parent.inProgress = false;
+          parent._modTs = bumpModTs(parent._modTs);
+          markDirty('projectTasks', parent.id);
+        } else if (!allDone && parent.done) {
+          parent.done = false;
+          parent._modTs = bumpModTs(parent._modTs);
+          markDirty('projectTasks', parent.id);
+        } else {
+          break; // no change → ancestor chain is already consistent
+        }
+        cur = parent;
+      }
+    }
     function toggleProjectTask(taskId) {
       var task = (data.projectTasks || []).find(function(t) { return isLive(t) && t.id === taskId; });
       if (task) {
@@ -7278,6 +7319,7 @@
         if (task.done) task.inProgress = false;
         task._modTs = bumpModTs(task._modTs);
         markDirty('projectTasks', task.id);
+        _propagateParentDone(task.id);
         saveData(); render();
       }
     }
@@ -7289,6 +7331,7 @@
       if (task.inProgress && task.done) task.done = false;
       task._modTs = bumpModTs(task._modTs);
       markDirty('projectTasks', task.id);
+      _propagateParentDone(task.id);
       saveData(); render();
     }
     window.toggleProjectTaskInProgress = toggleProjectTaskInProgress;
