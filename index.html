@@ -1870,7 +1870,50 @@
       var item = arr.splice(newIdx, 1)[0];
       if (newIdx < afterIdx) afterIdx--;
       arr.splice(afterIdx + 1, 0, item);
+      // The display sorts by orderIndex (not array index). Without rebalancing,
+      // a freshly-created item has no orderIndex and falls to the bottom even
+      // though the array order is correct. Re-number siblings now so the
+      // displayed order matches the array we just rebuilt.
+      if (kind === 'project') _rebalanceProjectOrderIndex(item.parentId);
+      else if (kind === 'task') _rebalanceTaskOrderIndex(item.projectId, item.parentTaskId);
       try { saveData(); } catch(e) {}
+    }
+    function _rebalanceProjectOrderIndex(parentId) {
+      var arr = data.projects || [];
+      var key = parentId == null ? null : parentId;
+      var indexInArr = {};
+      arr.forEach(function(p, i){ if (p) indexInArr[p.id] = i; });
+      var siblings = arr.filter(function(p){
+        if (!p || p._deleted) return false;
+        return (p.parentId == null ? null : p.parentId) === key;
+      });
+      siblings.sort(function(a, b){ return indexInArr[a.id] - indexInArr[b.id]; });
+      siblings.forEach(function(p, i){
+        if (p.orderIndex !== i) {
+          p.orderIndex = i;
+          p._modTs = bumpModTs(p._modTs);
+          markDirty('projects', p.id);
+        }
+      });
+    }
+    function _rebalanceTaskOrderIndex(projectId, parentTaskId) {
+      var arr = data.projectTasks || [];
+      var pKey = (parentTaskId == null) ? null : parentTaskId;
+      var indexInArr = {};
+      arr.forEach(function(t, i){ if (t) indexInArr[t.id] = i; });
+      var siblings = arr.filter(function(t){
+        if (!t || t._deleted) return false;
+        if (t.projectId !== projectId) return false;
+        return ((t.parentTaskId == null) ? null : t.parentTaskId) === pKey;
+      });
+      siblings.sort(function(a, b){ return indexInArr[a.id] - indexInArr[b.id]; });
+      siblings.forEach(function(t, i){
+        if (t.orderIndex !== i) {
+          t.orderIndex = i;
+          t._modTs = bumpModTs(t._modTs);
+          markDirty('projectTasks', t.id);
+        }
+      });
     }
     window.setAddAfter = setAddAfter;
     window.applyAddAfter = applyAddAfter;
