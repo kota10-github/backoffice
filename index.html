@@ -7580,8 +7580,38 @@
       var projName = project ? project.name : '';
       var c = getProjectColor(task.projectId);
       var html = '';
-      // Breadcrumb - middle crumb goes to parent project
-      html += '<div class="breadcrumb"><span class="breadcrumb-item" onclick="navigate(\'home\')">マップ</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-item" onclick="navigate(\'project-detail\',{id:' + task.projectId + '})">' + escapeHtml(projName) + '</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-current">' + escapeHtml(task.title) + '</span></div>';
+      // Breadcrumb — show the FULL ancestor chain: マップ → [root project →
+      // … → leaf project] → [topmost parent task → … → immediate parent] →
+      // current task.
+      var bcParts = ['<span class="breadcrumb-item" onclick="navigate(\'home\')">マップ</span>'];
+      // Project chain (root → leaf)
+      var projChain = [];
+      var pCur = project;
+      var pGuard = 0;
+      while (pCur && pGuard++ < 50) {
+        projChain.unshift(pCur);
+        pCur = pCur.parentId != null ? getProject(pCur.parentId) : null;
+      }
+      projChain.forEach(function(p){
+        bcParts.push('<span class="breadcrumb-sep">›</span>');
+        bcParts.push('<span class="breadcrumb-item" onclick="navigate(\'project-detail\',{id:' + p.id + '})">' + escapeHtml(p.name || 'プロジェクト') + '</span>');
+      });
+      // Parent task chain (topmost → immediate parent)
+      var taskChain = [];
+      var tCur = task.parentTaskId ? (data.projectTasks || []).find(function(x){ return isLive(x) && x.id === task.parentTaskId; }) : null;
+      var tGuard = 0;
+      while (tCur && tGuard++ < 50) {
+        taskChain.unshift(tCur);
+        tCur = tCur.parentTaskId ? (data.projectTasks || []).find(function(x){ return isLive(x) && x.id === tCur.parentTaskId; }) : null;
+      }
+      taskChain.forEach(function(t){
+        bcParts.push('<span class="breadcrumb-sep">›</span>');
+        bcParts.push('<span class="breadcrumb-item" onclick="navigate(\'task-detail\',{id:' + t.id + '})">' + escapeHtml(t.title || 'タスク') + '</span>');
+      });
+      // Current task
+      bcParts.push('<span class="breadcrumb-sep">›</span>');
+      bcParts.push('<span class="breadcrumb-current">' + escapeHtml(task.title) + '</span>');
+      html += '<div class="breadcrumb">' + bcParts.join('') + '</div>';
       // Header
       html += '<div class="page-header"><h1 class="page-title" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">';
       // タスク詳細のチェックボックス: SVG を pointer-events:none にして、タップが
