@@ -8288,7 +8288,7 @@
         { label: 'キャンセル', onClick: function(o){ o.remove(); } },
         { label: '変換', class: 'btn btn-primary', onClick: function(o){
           if (!data.nextProjectId) data.nextProjectId = 1;
-          var newProj = { id: data.nextProjectId++, name: task.title || '', parentId: task.projectId, _modTs: bumpModTs(0) };
+          var newProj = { id: data.nextProjectId++, name: task.title || '', parentId: task.projectId, memo: task.memo || '', _modTs: bumpModTs(0) };
           (data.projects = data.projects || []).push(newProj);
           markDirty('projects', newProj.id);
           // 直接の子 (parentTaskId === task.id) は新 project 直下のトップレベルタスクに
@@ -8344,7 +8344,7 @@
         { label: '変換', class: 'btn btn-primary', onClick: function(o){
           var now = Date.now();
           if (!data.nextProjectTaskId) data.nextProjectTaskId = 1;
-          var newTask = { id: data.nextProjectTaskId++, projectId: project.parentId, title: project.name || '', done: false, parentTaskId: null, _modTs: bumpModTs(0) };
+          var newTask = { id: data.nextProjectTaskId++, projectId: project.parentId, title: project.name || '', done: false, parentTaskId: null, memo: project.memo || '', _modTs: bumpModTs(0) };
           (data.projectTasks = data.projectTasks || []).push(newTask);
           markDirty('projectTasks', newTask.id);
           // サブタブを親プロジェクト直下へ昇格
