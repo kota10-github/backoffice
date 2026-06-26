@@ -232,6 +232,8 @@
     .readonly-mode [draggable="true"]{-webkit-user-drag:none}
     .readonly-mode .matrix-task{cursor:pointer}
     .readonly-mode .readonly-banner{position:fixed;bottom:12px;right:12px;z-index:200;background:#1e293b;color:#fff;font-size:11px;padding:6px 12px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.2);pointer-events:none}
+    .mindmap-inner .map-done-task{display:none}
+    .mindmap-inner.searching .map-done-task{display:flex}
     .mindmap-inner.searching .search-match{outline:2px solid #fbbf24;outline-offset:2px;box-shadow:0 0 0 4px rgba(251,191,36,.25)}
     /* マッチ要素を含む祖先タブ: 控えめなオレンジ枠で「中にヒットあり」を示す */
     .mindmap-inner.searching .search-has-match{opacity:1!important;outline:1.5px dashed #fbbf24;outline-offset:2px}
@@ -3339,12 +3341,10 @@
             html += `<button class="sub-add-plus sub-add-plus-below" title="同階層に追加" onclick="event.stopPropagation();setAddAfter('manual',${m.id});showAddOptionsPopup(this,${proj.projectId},'project')">+</button>`;
             html += `</div></div>`; // close sub-tree-card-wrap, sub-tree-row
           });
-          // Map hides completed tasks; children whose parent is hidden get promoted to top-level
-          // 検索中は完了タスクも含めて表示 (検索ヒット可能にする)
-          var vProjTasks = _mapSearch ? projTasks : projTasks.filter(function(t){ return !t.done; });
-          var vProjIds = {}; vProjTasks.forEach(function(t){ vProjIds[t.id] = true; });
-          vProjTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vProjIds[t.parentTaskId]) ? t.parentTaskId : null; });
-          vProjTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) {
+          // 完了タスクも常にDOMに含める (CSS で通常非表示、検索時に表示)
+          var vProjIds = {}; projTasks.forEach(function(t){ vProjIds[t.id] = true; });
+          projTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vProjIds[t.parentTaskId]) ? t.parentTaskId : null; });
+          projTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) {
             renderTaskBranch(t, c);
           });
           proj.subProjects.forEach(function(sp) { renderSubBranch(sp); });
@@ -3390,12 +3390,10 @@
             html += '<button class="sub-add-plus sub-add-plus-below" title="同階層に追加" onclick="event.stopPropagation();setAddAfter(\'manual\',' + m.id + ');showAddOptionsPopup(this,' + sp.projectId + ',\'subproject\')">+</button>';
             html += '</div></div>';
           });
-          // Map hides completed tasks; promote orphaned visible children
-          // 検索中は完了タスクも含めて表示 (検索ヒット可能にする)
-          var vSpTasks = _mapSearch ? spTasks : spTasks.filter(function(t){ return !t.done; });
-          var vSpIds = {}; vSpTasks.forEach(function(t){ vSpIds[t.id] = true; });
-          vSpTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vSpIds[t.parentTaskId]) ? t.parentTaskId : null; });
-          vSpTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) { renderTaskBranch(t, sc); });
+          // 完了タスクも常にDOMに含める (CSS で通常非表示、検索時に表示)
+          var vSpIds = {}; spTasks.forEach(function(t){ vSpIds[t.id] = true; });
+          spTasks.forEach(function(t){ t._effectiveParent = (t.parentTaskId && vSpIds[t.parentTaskId]) ? t.parentTaskId : null; });
+          spTasks.filter(function(t){ return !t._effectiveParent; }).forEach(function(t) { renderTaskBranch(t, sc); });
           if (sp.subProjects.length > 0) {
             sp.subProjects.forEach(function(child) { renderSubBranch(child); });
           }
@@ -3405,12 +3403,12 @@
         // Task branch: task card on left, child tasks branching to the right (same shape as sub-tree-row)
         function renderTaskBranch(t, parentColor) {
           var color = parentColor || { bg: '#94a3b8', light: '#f1f5f9' };
-          var kids = _mapSearch ? getChildTasks(t.id) : getChildTasks(t.id).filter(function(k){ return !k.done; });
+          var kids = getChildTasks(t.id);
           var taskKey = 'task-' + t.id;
           var taskCollapsed = _mapCollapsed.has(taskKey);
           var taskHasChildren = kids.length > 0;
           var taskToggle = taskHasChildren ? '<button class="map-collapse-toggle" title="' + (taskCollapsed ? '展開' : '折りたたむ') + '" onclick="event.stopPropagation();toggleMapCollapse(\'' + taskKey + '\', this)">' + (taskCollapsed ? '▸' : '▾') + '</button>' : '';
-          html += '<div class="sub-tree-row' + (taskCollapsed ? ' collapsed' : '') + '" data-task="' + t.id + '">';
+          html += '<div class="sub-tree-row' + (taskCollapsed ? ' collapsed' : '') + (t.done ? ' map-done-task' : '') + '" data-task="' + t.id + '">';
           html += '<div class="sub-tree-card-wrap">';
           // matrixQ があれば色をその quadrant カラーで上書き。
           // 子タスクは親 task の matrixQ を継承 (getEffectiveMatrixQ)。
