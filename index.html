@@ -3405,7 +3405,7 @@
         // Task branch: task card on left, child tasks branching to the right (same shape as sub-tree-row)
         function renderTaskBranch(t, parentColor) {
           var color = parentColor || { bg: '#94a3b8', light: '#f1f5f9' };
-          var kids = getChildTasks(t.id).filter(function(k){ return !k.done; });
+          var kids = _mapSearch ? getChildTasks(t.id) : getChildTasks(t.id).filter(function(k){ return !k.done; });
           var taskKey = 'task-' + t.id;
           var taskCollapsed = _mapCollapsed.has(taskKey);
           var taskHasChildren = kids.length > 0;
