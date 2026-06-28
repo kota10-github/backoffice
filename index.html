@@ -7326,18 +7326,17 @@
     // Walk up the parent chain; auto-mark a parent done iff ALL of its live
     // children are done. Also un-do a parent when a child gets un-done, so the
     // status stays consistent with what the user sees in the tree.
-    function _propagateParentDone(taskId) {
+    function _propagateParentDone(taskId, startFromSelf) {
       var tasks = data.projectTasks || [];
       var byId = {};
       tasks.forEach(function(t){ if (t && !t._deleted) byId[t.id] = t; });
-      var cur = byId[taskId];
+      var cur = startFromSelf ? { parentTaskId: taskId } : byId[taskId];
       var guard = 0;
       while (cur && cur.parentTaskId != null && guard++ < 50) {
         var parent = byId[cur.parentTaskId];
         if (!parent) break;
         var children = tasks.filter(function(t){ return t && !t._deleted && t.parentTaskId === parent.id; });
-        if (children.length === 0) break;
-        var allDone = children.every(function(t){ return t.done; });
+        var allDone = children.length === 0 || children.every(function(t){ return t.done; });
         if (allDone && !parent.done) {
           parent.done = true;
           parent.inProgress = false;
@@ -7348,7 +7347,7 @@
           parent._modTs = bumpModTs(parent._modTs);
           markDirty('projectTasks', parent.id);
         } else {
-          break; // no change → ancestor chain is already consistent
+          break;
         }
         cur = parent;
       }
@@ -7392,10 +7391,13 @@
           }
         });
       }
+      var deletedTask = (data.projectTasks || []).find(function(t){ return t && t.id === taskId; });
+      var deletedParentId = deletedTask ? deletedTask.parentTaskId : null;
       var now = Date.now();
       (data.projectTasks || []).forEach(function(t) {
         if (toDelete.has(t.id)) { t._deleted = true; t._modTs = bumpModTs(t._modTs); markDirty('projectTasks', t.id); }
       });
+      if (deletedParentId) _propagateParentDone(deletedParentId, true);
       saveData();
       // 削除されたタスクの詳細ページを開いている場合はガントへ戻す
       if (currentPage === 'task-detail' && pageParams && toDelete.has(pageParams.id)) {
