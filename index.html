@@ -6686,14 +6686,6 @@
     // On load: compare timestamps - newer data wins
     function initSync() {
       try {
-      // 一時復旧: ローカルのプロジェクト数がリモートより多ければローカル優先でpush
-      var localProjCount = (data.projects || []).filter(function(p){ return p && !p._deleted; }).length;
-      var localTaskCount = (data.projectTasks || []).filter(function(t){ return t && !t._deleted; }).length;
-      if (localProjCount > 10 || localTaskCount > 20) {
-        pushSyncNow();
-        render();
-        return;
-      }
       fetch(SYNC_URL)
         .then(function(r) { return r.json(); })
         .then(function(remote) {
