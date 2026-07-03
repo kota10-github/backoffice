@@ -8,7 +8,7 @@ const BLOB_BASE = 'https://jsonblob.com/api/jsonBlob';
 // 2026-05-04 時点でアクティブな blob id。期限切れで新 blob が発行されたら
 // _currentBlobId にキャッシュされ、以降そちらを使う。
 // 旧: 019dab81-... (期限切れ), 019df212-... (2026-05-04 ローテート)
-const INITIAL_BLOB_ID = '019df212-1f3e-7450-b03d-ad286c5de2c5';
+const INITIAL_BLOB_ID = '019f2a28-8e8f-7f9d-bfd3-4ef9734c4ad7';
 let _currentBlobId = INITIAL_BLOB_ID;
 function blobUrl() { return BLOB_BASE + '/' + _currentBlobId; }
 
