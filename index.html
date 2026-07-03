@@ -3839,8 +3839,7 @@
           var childrenDiv = container.querySelector(':scope > .sub-tree-children');
           if (!childrenDiv) return;
           // .sub-row でラップしたので [data-node] は 1 階層深くなった
-          var hideDone = !_mapSearch;
-          var childNodes = childrenDiv.querySelectorAll(':scope > .sub-tree-row' + (hideDone ? ':not(.map-done-task)' : '') + ' > .sub-tree-card-wrap [data-node]');
+          var childNodes = childrenDiv.querySelectorAll(':scope > .sub-tree-row > .sub-tree-card-wrap [data-node]');
           if (childNodes.length === 0) return;
           var parentPos = getPos(parentNode);
           if (!parentPos) return;
